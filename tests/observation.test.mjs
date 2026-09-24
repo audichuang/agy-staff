@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bytes, createParser, createProjection, boundSnapshot } from '../companion/observation.mjs';
+import { bytes, createParser, createProjection, boundSnapshot } from '../skills/agy/companion/observation.mjs';
 const step = (index, type, state, extra = {}) => ({ event: 'step_update', step_update: { conversation_id: 'c', step_index: index, step_type: type, state, ...extra } });
 
 test('UTF-8 chunks, multiple records, malformed/oversized lines and unterminated final record', () => {

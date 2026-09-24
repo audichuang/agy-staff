@@ -13,7 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const COMPANION = path.join(HERE, '..', 'companion', 'agy-companion.mjs');
+export const COMPANION = path.join(HERE, '..', 'skills', 'agy', 'companion', 'agy-companion.mjs');
 export const FAKE_AGY = path.join(HERE, 'fake-agy.mjs');
 
 /**

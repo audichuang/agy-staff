@@ -16,7 +16,7 @@ import {
   processTable,
   processIdentity,
   stopExecution,
-} from '../companion/stream-worker.mjs';
+} from '../skills/agy/companion/stream-worker.mjs';
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } };
@@ -24,7 +24,7 @@ const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (error
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 test('every spawn and spawnSync in companion/*.mjs passes windowsHide: true', () => {
-  const companionDir = path.join(HERE, '..', 'companion');
+  const companionDir = path.join(HERE, '..', 'skills', 'agy', 'companion');
   const files = fs.readdirSync(companionDir).filter((f) => f.endsWith('.mjs'));
   assert.ok(files.length > 0, 'companion directory should contain .mjs files');
 

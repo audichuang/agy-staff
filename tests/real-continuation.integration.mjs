@@ -7,13 +7,13 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { processIdentity } from '../companion/stream-worker.mjs';
+import { processIdentity } from '../skills/agy/companion/stream-worker.mjs';
 
 if (process.env.AGY_REAL_CONTINUATION !== '1') {
   console.log('Set AGY_REAL_CONTINUATION=1 to verify real AGY continuation rejection (uses model quota).');
   process.exit(0);
 }
-const companion = fileURLToPath(new URL('../companion/agy-companion.mjs', import.meta.url));
+const companion = fileURLToPath(new URL('../skills/agy/companion/agy-companion.mjs', import.meta.url));
 const model = process.env.AGY_REAL_MODEL || 'gemini-3.8-flash-low';
 const cases = ['running-guards', 'simultaneous', 'cancel-continue'];
 const selected = process.env.AGY_REAL_CONTINUATION_CASE;

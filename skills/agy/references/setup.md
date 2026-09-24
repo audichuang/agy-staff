@@ -7,7 +7,7 @@ staffer, research, review, and implement default to unrestricted and work with n
 **Step 1 — status + dry run.** Shows the current per-repo policy, the allow/deny rules state, and the plan without writing anything:
 
 ```bash
-node "<skill-dir>/../../companion/agy-companion.mjs" setup
+node "<skill-dir>/companion/agy-companion.mjs" setup
 ```
 
 If it reports the agy CLI itself is missing, stop and relay its install guidance — do not attempt to install agy yourself.
@@ -15,8 +15,8 @@ If it reports the agy CLI itself is missing, stop and relay its install guidance
 **Step 2 — per-repo policy.** Ask the user with `AskUserQuestion` (multiSelect over `staffer`, `research`, `review`, `implement`, plus a "None — keep the defaults (Recommended)" option): which modes should default to the **restricted** profile in this repository? Make clear this is a per-repo, per-machine preference (`.agy-staff/config.json`, git-ignored, not shared with the team), that a `--restricted`/`--unrestricted` flag on a call still overrides it, and that it is a run policy, not a security boundary — untrusted input still calls for an isolated checkout. Then apply their answer:
 
 ```bash
-node "<skill-dir>/../../companion/agy-companion.mjs" setup --restrict review,research   # their selection
-node "<skill-dir>/../../companion/agy-companion.mjs" setup --restrict none              # if they chose none
+node "<skill-dir>/companion/agy-companion.mjs" setup --restrict review,research   # their selection
+node "<skill-dir>/companion/agy-companion.mjs" setup --restrict none              # if they chose none
 ```
 
 If they chose none AND the step-1 output shows the allow/deny rules already installed, you are done — skip to the final report.
@@ -31,7 +31,7 @@ Then use `AskUserQuestion` exactly once: `Apply the allow/deny rules (Recommende
 **Step 4 — only if the user chose apply:**
 
 ```bash
-node "<skill-dir>/../../companion/agy-companion.mjs" setup --apply
+node "<skill-dir>/companion/agy-companion.mjs" setup --apply
 ```
 
 ## Final report

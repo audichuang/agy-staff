@@ -6,9 +6,9 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { descendants } from '../companion/stream-worker.mjs';
+import { descendants } from '../skills/agy/companion/stream-worker.mjs';
 if (process.env.AGY_REAL_SMOKE !== '1') { console.log('Set AGY_REAL_SMOKE=1 to run real AGY lifecycle smoke tests.'); process.exit(0); }
-const companion = fileURLToPath(new URL('../companion/agy-companion.mjs', import.meta.url));
+const companion = fileURLToPath(new URL('../skills/agy/companion/agy-companion.mjs', import.meta.url));
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agy-lifecycle-real-'));
 const summary = { root, version: spawnSync(process.env.AGY_BIN || 'agy', ['--version'], { encoding: 'utf8' }).stdout.trim(), cases: [] };
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

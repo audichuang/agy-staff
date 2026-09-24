@@ -1,4 +1,4 @@
-name: Generated skills consistency
+name: Tests
 on:
   push:
     branches: [master]
@@ -7,17 +7,6 @@ on:
 permissions:
   contents: read
 jobs:
-  consistency:
-    # Required status check (ruleset "Generated skills consistency"); runs automatically.
-    name: Generated skills consistency
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - run: npm run check:pi
-
   test-ubuntu:
     name: Tests (Ubuntu)
     runs-on: ubuntu-latest

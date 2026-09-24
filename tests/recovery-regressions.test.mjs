@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { sandbox, run, jobIdOf, waitForCalls, agyCalls, promptOf, COMPANION } from './helpers.mjs';
-import { processIdentity, stopExecution } from '../companion/stream-worker.mjs';
+import { processIdentity, stopExecution } from '../skills/agy/companion/stream-worker.mjs';
 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const stateFile = sb => path.join(sb.repo, '.agy-staff/state.json');

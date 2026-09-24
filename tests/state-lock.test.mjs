@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { withStateLock, replaceFile } from '../companion/state-lock.mjs';
+import { withStateLock, replaceFile } from '../skills/agy/companion/state-lock.mjs';
 import { sandbox } from './helpers.mjs';
 
 test('competing stale-lock reapers cannot remove the next owner or lose updates', async () => {
@@ -13,7 +13,7 @@ test('competing stale-lock reapers cannot remove the next owner or lose updates'
   fs.writeFileSync(count, '0'); fs.mkdirSync(lock);
   const oldOwner = 'owner-99999999-dead';
   fs.writeFileSync(path.join(lock, oldOwner), '');
-  const module = new URL('../companion/state-lock.mjs', import.meta.url).href;
+  const module = new URL('../skills/agy/companion/state-lock.mjs', import.meta.url).href;
   const workers = Array.from({ length: 4 }, (_, index) => new Promise((resolve, reject) => {
     // Hold each reaper just before unlink, so several have inspected the same
     // stale owner. Later unlinks occur after a successor acquired the lock.
