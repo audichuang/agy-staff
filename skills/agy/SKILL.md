@@ -35,7 +35,7 @@ Coordinating several assignments or a long task: read `references/lead.md`.
 
 ## Flags
 
-`--model <id>` or `--effort low|medium|high`; `--restricted` (allowlisted tools only, may come back empty - `references/setup.md`); `--timeout <dur>` (60m default, 120m max; ask 2m); `--continue` / `--conversation <id>` reuse a conversation and inherit its model and profile; `--json` on review only, when machine-readable findings are requested.
+`--model <id>` (an id from `node "<skill-dir>/companion/agy-companion.mjs" models`, which lists what agy offers now; a family such as `gemini-4-argon` or a unique part such as `argon` takes `--effort`) or `--effort low|medium|high` (flash); `--restricted` (allowlisted tools only, may come back empty - `references/setup.md`); `--timeout <dur>` (60m default, 120m max; ask 2m); `--continue` / `--conversation <id>` reuse a conversation and inherit its model and profile; `--json` on review only, when machine-readable findings are requested.
 
 ## Collect the result
 

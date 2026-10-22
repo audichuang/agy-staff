@@ -109,7 +109,7 @@ Caveat, stated plainly: **the exact project-settings file path is undocumented a
 |---|---|
 | `--conversation <id>` | resume a specific agy conversation |
 | `--continue` | reuse this mode's last conversation id from state |
-| `--model <id>` | explicit agy model (see `agy models`). Ids are effort-suffixed (`gemini-3.8-flash-low`); the companion normalizes bare families (`gemini-3.8-flash` + `--effort`) and the aliases `flash`/`pro`, and rejects unknown ids pre-flight |
+| `--model <id>` | agy model, checked against the live `agy models` list (the `models` subcommand prints it). Ids are effort-suffixed (`gemini-3.8-flash-low`); a bare family or a unique part of one (`argon`) takes `--effort` (default medium, else the highest the family has). Unknown or ambiguous names fail pre-flight with the list; when the list cannot be fetched, a full id passes through |
 | `--effort low\|medium\|high` | shorthand for `gemini-3.8-flash-<effort>` |
 | `--restricted` / `--unrestricted` | permission profile override (ignored by `ask`). `unrestricted` is the default for `staffer`/`research`/`review`/`implement`, so `--restricted` is the flag you actually reach for |
 | `--restrict <modes\|none>` | (setup) per-repo policy: the listed modes default to restricted in this repository; `none` clears it. See [Per-repo policy](#per-repo-policy-setup---restrict) |

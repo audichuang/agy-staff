@@ -332,3 +332,45 @@ test('--help and -h print usage and exit 0', () => {
     assert.match(r.stdout, /^usage: agy-companion\.mjs/);
   }
 });
+
+describe('--model resolves against the live `agy models` list', () => {
+  const modelOf = (sb) => { const a = agyCalls(sb).at(-1); return a[a.indexOf('--model') + 1]; };
+
+  test('models prints the ids agy lists', () => {
+    const r = run(sandbox('models-list'), ['models']);
+    assert.equal(r.code, 0);
+    assert.match(r.stdout, /^gemini-3\.8-flash-high\tGemini 3\.8 Flash \(High\)$/m);
+    assert.doesNotMatch(r.stdout, /Fetching/);
+  });
+
+  test('a unique part of a family takes --effort', () => {
+    const sb = sandbox('model-part');
+    const r = run(sb, ['ask', '--model', 'pro', '--effort', 'low', '--prompt', 'q']);
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(modelOf(sb), 'gemini-3.1-pro-low');
+  });
+
+  test('a missing effort falls back to the highest the family has', () => {
+    const sb = sandbox('model-effort');
+    const r = run(sb, ['ask', '--model', 'gemini-3.1-pro', '--prompt', 'q']);
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(modelOf(sb), 'gemini-3.1-pro-high');
+  });
+
+  test('an ambiguous or unknown name dies with the list, before running agy', () => {
+    const sb = sandbox('model-unknown');
+    for (const name of ['flash', 'argon', 'gemini-9-flash-low']) {
+      const r = run(sb, ['ask', '--model', name, '--prompt', 'q']);
+      assert.notEqual(r.code, 0);
+      assert.match(r.stderr, /gemini-3\.8-flash-low\tGemini 3\.8 Flash \(Low\)/);
+    }
+    assert.equal(agyCalls(sb).length, 0);
+  });
+
+  test('a full id passes through when the list is unavailable', () => {
+    const sb = sandbox('model-offline');
+    const r = run(sb, ['ask', '--model', 'gemini-4-argon-low', '--prompt', 'q'], { FAKE_AGY_MODELS_ERROR: 'offline' });
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(modelOf(sb), 'gemini-4-argon-low');
+  });
+});

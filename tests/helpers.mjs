@@ -81,7 +81,8 @@ export function agyCalls(sb) {
     .readFileSync(sb.argvFile, 'utf8')
     .split('\n')
     .filter(Boolean)
-    .map((l) => JSON.parse(l));
+    .map((l) => JSON.parse(l))
+    .filter((argv) => argv[0] !== 'models'); // model lookups are not runs
 }
 
 /** The prompt (`-p <prompt>`) of one recorded agy call. */

@@ -21,6 +21,7 @@
  *                                   it again)
  *   result [job-id]                 print the stored output of a finished job
  *   cancel <job-id>                 kill a running background job
+ *   models                          list the model ids agy accepts (live `agy models`)
  *   setup [--apply]                 optional: install the evidence-gathering
  *                                   command allowlist used by restricted runs
  *   setup --restrict <modes|none>   optional: per-repo policy — make the listed
@@ -32,7 +33,8 @@
  *   --job <id>            continue a specific job with its original configuration
  *   --conversation <id>   resume a specific agy conversation
  *   --continue            reuse the last conversation id for this mode
- *   --model <id>          explicit agy model id (overrides --effort)
+ *   --model <id>          model id, family, or unique part of one (see `models`);
+ *                         checked against `agy models`, overrides --effort
  *   --effort <l|m|h>      low|medium|high → gemini-3.8-flash-<effort>
  *   --restricted          hardening opt-in: keep agy's permission enforcement
  *                         on (wants setup's evidence-gathering allowlist)
@@ -138,42 +140,44 @@ const DEFAULTS = {
 
 // agy only accepts effort-suffixed model ids; bare family names are rejected
 // with status ERROR ("--model gemini-3.8-flash requires --effort").
-// Known ids: gemini-3.8-flash-* verified in agy 1.4.4 call logs; gemini-3.1-pro-*
-// backs the `pro` alias, unverified. Callers only ask for Gemini: agy-pick
-// (AGY_BIN) swaps in Claude itself once Gemini is out.
-const KNOWN_MODELS = new Set([
-  'gemini-3.8-flash-high', 'gemini-3.8-flash-medium', 'gemini-3.8-flash-low',
-  'gemini-3.1-pro-high', 'gemini-3.1-pro-low',
-]);
-const MODEL_FAMILIES = {
-  'gemini-3.8-flash': ['low', 'medium', 'high'],
-  'gemini-3.1-pro': ['low', 'high'],
-};
-const MODEL_ALIASES = { flash: 'gemini-3.8-flash', pro: 'gemini-3.1-pro' };
+// An explicit --model is checked against the live `agy models` list, so a new
+// model needs no change here; only DEFAULTS names ids. Callers only ask for
+// Gemini: agy-pick (AGY_BIN) swaps in Claude itself once Gemini is out.
+const EFFORT_SUFFIX = /-(low|medium|high)$/;
 
-/** Normalize a user-supplied --model value to an id agy accepts, or die
- *  pre-flight with a helpful message. Never lets a bare family reach agy. */
+function formatModels(models) {
+  return models.map((m) => `${m.id}${m.desc ? `\t${m.desc}` : ''}`).join('\n');
+}
+
+/** Resolve a user-supplied --model (full id, family, or unique part of a
+ *  family such as "argon") to an id agy lists, or die pre-flight with the list.
+ *  Never lets a bare family reach agy. */
 function normalizeModel(raw, effort) {
-  const name = MODEL_ALIASES[raw] || raw;
-  if (KNOWN_MODELS.has(name)) return name;
-  const efforts = MODEL_FAMILIES[name];
-  if (efforts) {
+  const discovery = queryAgyModels();
+  if (!discovery.ok) {
+    // cannot check offline; agy itself still rejects a bad full id
+    if (EFFORT_SUFFIX.test(raw)) return raw;
+    die(`cannot resolve --model "${raw}": \`agy models\` failed (${discovery.error}). Pass a full id such as gemini-3.8-flash-medium.`);
+  }
+  const ids = discovery.models.map((m) => m.id);
+  if (ids.includes(raw)) return raw;
+  const families = [...new Set(ids.filter((id) => EFFORT_SUFFIX.test(id)).map((id) => id.replace(EFFORT_SUFFIX, '')))];
+  const matches = families.includes(raw) ? [raw] : families.filter((f) => f.includes(raw));
+  if (matches.length === 1) {
+    const family = matches[0];
+    const efforts = ids.filter((id) => id.replace(EFFORT_SUFFIX, '') === family).map((id) => id.match(EFFORT_SUFFIX)[1]);
     let e = effort || 'medium';
     if (!efforts.includes(e)) {
-      // e.g. gemini-3.1-pro has no medium: fall back to its highest tier
-      const fallback = efforts[efforts.length - 1];
-      process.stderr.write(`agy-staff: ${name} has no "${e}" effort; using ${name}-${fallback}\n`);
+      const fallback = ['high', 'medium', 'low'].find((x) => efforts.includes(x));
+      process.stderr.write(`agy-staff: ${family} has no "${e}" effort; using ${family}-${fallback}\n`);
       e = fallback;
     }
-    return `${name}-${e}`;
+    return `${family}-${e}`;
   }
-  // future-tolerance: pass through anything already effort-suffixed
-  if (/-(low|medium|high)$/.test(name)) return name;
   die(
-    `unknown model id "${raw}". agy needs effort-suffixed ids, e.g. ` +
-      `gemini-3.8-flash-low|medium|high, gemini-3.1-pro-low|high. ` +
-      `Aliases accepted here: "flash" (gemini-3.8-flash), "pro" (gemini-3.1-pro), ` +
-      `optionally combined with --effort. Run \`agy models\` for the full list.`
+    `${matches.length ? `"${raw}" matches several models (${matches.join(', ')})` : `unknown model "${raw}"`}. ` +
+      `Pass an id below, a family with --effort, or a unique part of a family name (e.g. "flash"):\n` +
+      formatModels(discovery.models)
   );
 }
 
@@ -695,7 +699,7 @@ function handleUnsupportedModel({ requestedModel, errText, originalError, convNo
 
   msg +=
     `Available models (from \`agy models\`):\n` +
-    discovery.models.map((m) => `  ${m.id}${m.desc ? `\t${m.desc}` : ''}`).join('\n') +
+    formatModels(discovery.models).replace(/^/gm, '  ') +
     '\n\n';
 
   if (best) {
@@ -848,7 +852,7 @@ function triageResult({ payload, stderr, exit }, mode, profile, profileSource, r
     const hints = [];
     // agy-pick's stderr always names the model, so only agy's own error counts.
     if (/model|effort/i.test(payload.error || '')) {
-      hints.push('invalid model id (agy needs effort-suffixed ids, e.g. gemini-3.8-flash-low — run `agy models`)');
+      hints.push('invalid model id (agy needs effort-suffixed ids, e.g. gemini-3.8-flash-low — run the companion \`models\` subcommand)');
     }
     if (/auth|login|credential|unauthorized|401|403|not logged into Antigravity/i.test(errText)) {
       hints.push(`expired auth (${authHint(stderr)})`);
@@ -1886,7 +1890,7 @@ function printSetupNotes() {
 function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const usage =
-    'usage: agy-companion.mjs <staffer|research|review|implement|ask|continue|restart|observe|status|wait|result|cancel|setup> [flags]\n' +
+    'usage: agy-companion.mjs <staffer|research|review|implement|ask|continue|restart|observe|status|wait|result|cancel|setup|models> [flags]\n' +
     'flags: --restricted|--unrestricted --model <id> --effort <l|m|h> --timeout <dur> ' +
     '--prompt <text> --prompt-file <path> --stdin --conversation <id> --continue --json (review) ' +
     '--apply --restrict <modes|none> (setup)\n' +
@@ -1918,6 +1922,12 @@ function main() {
       return cmdResult(opts);
     case 'cancel':
       return cmdCancel(opts);
+    case 'models': {
+      const discovery = queryAgyModels();
+      if (!discovery.ok) die(`\`agy models\` failed: ${discovery.error}`);
+      process.stdout.write(formatModels(discovery.models) + '\n');
+      return;
+    }
     case 'setup':
       return cmdSetup(opts);
     case '_worker':
