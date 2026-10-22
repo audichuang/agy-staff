@@ -364,6 +364,24 @@ describe('--model resolves against the live `agy models` list', () => {
     assert.equal(modelOf(sb), 'gemini-3.1-pro-low');
   });
 
+  test('a part matching several versions of one family takes the newest', () => {
+    const sb = sandbox('model-newest');
+    const r = run(sb, ['ask', '--model', 'flash', '--prompt', 'q']);
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(modelOf(sb), 'gemini-3.8-flash-medium');
+  });
+
+  test('Claude and GPT ids are refused: they are agy-pick\'s fallback reserve', () => {
+    const sb = sandbox('model-claude');
+    const list = 'gemini-3.8-flash-low\tFlash\nclaude-sonnet-5-5-high\tSonnet\ngpt-oss-120b-medium\tGPT';
+    for (const name of ['claude-sonnet-5-5-high', 'sonnet', 'gpt-oss-120b']) {
+      const r = run(sb, ['ask', '--model', name, '--prompt', 'q'], { FAKE_AGY_MODELS_OUTPUT: list });
+      assert.notEqual(r.code, 0, name);
+      assert.match(r.stderr, /fallback reserve/);
+    }
+    assert.equal(agyCalls(sb).length, 0);
+  });
+
   test('a missing effort falls back to the highest the family has', () => {
     const sb = sandbox('model-effort');
     const r = run(sb, ['ask', '--model', 'gemini-3.1-pro', '--prompt', 'q']);
@@ -373,7 +391,7 @@ describe('--model resolves against the live `agy models` list', () => {
 
   test('an ambiguous or unknown name dies with the list, before running agy', () => {
     const sb = sandbox('model-unknown');
-    for (const name of ['flash', 'argon', 'gemini-9-flash-low']) {
+    for (const name of ['gemini', 'argon', 'gemini-9-flash-low']) {
       const r = run(sb, ['ask', '--model', name, '--prompt', 'q']);
       assert.notEqual(r.code, 0);
       assert.match(r.stderr, /gemini-3\.8-flash-low\tGemini 3\.8 Flash \(Low\)/);

@@ -149,26 +149,41 @@ function formatModels(models) {
   return models.map((m) => `${m.id}${m.desc ? `\t${m.desc}` : ''}`).join('\n');
 }
 
-/** Resolve a user-supplied --model (full id, family, or unique part of a
- *  family such as "argon") to an id agy lists, or die pre-flight with the list.
- *  Never lets a bare family reach agy. */
+/** Resolve a user-supplied --model (full id, family, or part of a family name
+ *  such as "argon"; a part matching several versions of one family, such as
+ *  "flash", takes the newest) to a Gemini id agy lists, or die pre-flight with
+ *  the list. Never lets a bare family or a Claude/GPT id reach agy. */
 function normalizeModel(raw, effort) {
+  const gemini = (id) => {
+    if (/^(claude|gpt)/i.test(id)) {
+      die(`--model ${id}: Claude and GPT are agy-pick's fallback reserve, used only once Gemini is out. Ask for a Gemini model.`);
+    }
+    return id;
+  };
   const discovery = queryAgyModels();
   if (!discovery.ok) {
     // cannot check offline; agy itself still rejects a bad full id
-    if (EFFORT_SUFFIX.test(raw)) return raw;
+    if (EFFORT_SUFFIX.test(raw)) return gemini(raw);
     die(`cannot resolve --model "${raw}": \`agy models\` failed (${discovery.error}). Pass a full id such as gemini-3.8-flash-medium.`);
   }
   const ids = discovery.models.map((m) => m.id);
-  if (ids.includes(raw)) return raw;
-  const families = [...new Set(ids.filter((id) => EFFORT_SUFFIX.test(id)).map((id) => id.replace(EFFORT_SUFFIX, '')))];
-  const matches = families.includes(raw) ? [raw] : families.filter((f) => f.includes(raw));
+  if (ids.includes(raw)) return gemini(raw);
+  const efforts = new Map(); // family -> efforts agy lists for it
+  for (const id of ids) {
+    const m = id.match(EFFORT_SUFFIX);
+    if (m) efforts.set(id.slice(0, m.index), [...(efforts.get(id.slice(0, m.index)) || []), m[1]]);
+  }
+  const families = [...efforts.keys()];
+  let matches = families.includes(raw) ? [raw] : families.filter((f) => f.includes(raw));
+  const shape = (f) => f.replace(/\d+(\.\d+)*/g, '#'); // gemini-3.8-flash -> gemini-#-flash
+  if (matches.length > 1 && new Set(matches.map(shape)).size === 1) {
+    matches = [matches.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).at(-1)];
+  }
   if (matches.length === 1) {
-    const family = matches[0];
-    const efforts = ids.filter((id) => id.replace(EFFORT_SUFFIX, '') === family).map((id) => id.match(EFFORT_SUFFIX)[1]);
+    const family = gemini(matches[0]);
     let e = effort || 'medium';
-    if (!efforts.includes(e)) {
-      const fallback = ['high', 'medium', 'low'].find((x) => efforts.includes(x));
+    if (!efforts.get(family).includes(e)) {
+      const fallback = ['high', 'medium', 'low'].find((x) => efforts.get(family).includes(x));
       process.stderr.write(`agy-staff: ${family} has no "${e}" effort; using ${family}-${fallback}\n`);
       e = fallback;
     }
@@ -176,7 +191,7 @@ function normalizeModel(raw, effort) {
   }
   die(
     `${matches.length ? `"${raw}" matches several models (${matches.join(', ')})` : `unknown model "${raw}"`}. ` +
-      `Pass an id below, a family with --effort, or a unique part of a family name (e.g. "flash"):\n` +
+      `Pass a Gemini id below, a family with --effort, or part of a family name (e.g. "flash", "argon"):\n` +
       formatModels(discovery.models)
   );
 }
@@ -650,7 +665,7 @@ function agyPickQuota() {
 }
 
 function recommendCompatibleModel(requestedModel, availableModelIds) {
-  const effortMatch = requestedModel ? requestedModel.match(/-(low|medium|high)$/) : null;
+  const effortMatch = requestedModel ? requestedModel.match(EFFORT_SUFFIX) : null;
   const effort = effortMatch ? effortMatch[1] : null;
 
   if (effort) {
@@ -1949,6 +1964,7 @@ function main() {
       const discovery = queryAgyModels();
       if (!discovery.ok) die(`\`agy models\` failed: ${discovery.error}`);
       process.stdout.write(formatModels(discovery.models) + '\n');
+      process.stdout.write('(claude-* and gpt-* are agy-pick\'s fallback reserve: never pass them to --model)\n');
       const quota = agyPickQuota();
       if (quota) process.stdout.write(`\nquota left (5h / weekly) per account, from agy-pick:\n${quota}\n`);
       return;

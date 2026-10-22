@@ -82,7 +82,7 @@ export function agyCalls(sb) {
     .split('\n')
     .filter(Boolean)
     .map((l) => JSON.parse(l))
-    .filter((argv) => argv[0] !== 'models'); // model lookups are not runs
+    .filter((argv) => !['models', '--status'].includes(argv[0])); // model and quota lookups are not runs
 }
 
 /** The prompt (`-p <prompt>`) of one recorded agy call. */

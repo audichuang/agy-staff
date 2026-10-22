@@ -114,7 +114,7 @@ agy 还有与 `--project` 体系关联的项目级权限规则，可以将权限
 | --- | --- |
 | `--conversation <id>` | 继续指定的 agy 会话 |
 | `--continue` | 继续状态记录中该模式最近一次会话 |
-| `--model <id>` | 指定模型，可用 `agy models` 查看可用 ID。模型 ID 带有推理强度后缀，如 `gemini-3.8-flash-low`；companion 也能补全模型系列名与 `flash`、`pro` 别名，未知 ID 会在启动前报错 |
+| `--model <id>` | 指定模型，会对照 `agy models` 的实时列表检查（`models` 子命令会列出）。模型 ID 带有推理强度后缀，如 `gemini-3.8-flash-low`；也可传模型系列名或其中一段（`argon`、`flash`，同一系列有多个版本时取最新）并配合 `--effort`。未知或有歧义的名称会在启动前报错并列出可用 ID；Claude 与 GPT 是 agy-pick 的备用额度，会被拒绝 |
 | `--effort low\|medium\|high` | 指定推理强度，是 `gemini-3.8-flash-<effort>` 的简写 |
 | `--restricted` / `--unrestricted` | 覆盖本次运行的权限配置；`ask` 会忽略这两个参数 |
 | `--restrict <modes\|none>` | 用于 `setup`，设置或清除[仓库默认权限](#仓库级-policysetup---restrict) |
@@ -199,6 +199,8 @@ review --prompt "Review the patch at /tmp/change.patch"
 
 ### 取消与恢复
 
+`models` 列出 agy 当前提供的模型 ID；`AGY_BIN` 是 agy-pick 时，还会附上各账号剩余额度（5h／每周）。
+
 `cancel <id>` 会先记录取消请求，等 worker 保存取消报告并将任务状态设为 `canceled` 后才返回成功。它会保留已经崩溃的任务的诊断信息，也不会仅凭保存的 PID 就向一个未经身份核实的进程发送信号。缺少取消通道的旧任务会明确报错。取消命令报错时，应检查任务和日志，不能据此认定执行已经停止。中断 `wait` 只会结束等待，不会取消后台任务。
 
 需要继续已有会话时，使用 `continue --job <id> --prompt "..."`。它会沿用所选任务的模式、模型和权限配置，创建一个关联的新任务。也可以用 `--conversation <id>` 选择已记录的会话。显式指定模型或权限参数时，会覆盖继承的值。
@@ -244,7 +246,7 @@ review --prompt "Review the patch at /tmp/change.patch"
 
 ### agy 报错，但可能已经返回了回答
 
-遇到 `agy reported an error (status ERROR)` 时，companion 会保留 agy 的原始错误，仅在错误文本与已知情况匹配时补充提示。例如，模型 ID 无效时提示运行 `agy models`，登录过期时提示交互式运行 `agy` 重新登录。
+遇到 `agy reported an error (status ERROR)` 时，companion 会保留 agy 的原始错误，仅在错误文本与已知情况匹配时补充提示。例如，模型 ID 无效时提示运行 companion 的 `models` 子命令，登录过期时提示交互式运行 `agy` 重新登录。
 
 如果 AGY 报错时已经返回回答文本，companion 会尝试交付回答，并给出 `done_with_warnings` 警告。这种情况下退出码为 `0`，回答写入标准输出，警告写入标准错误；如果没有回答且命中超时分类，已知会话时改为 `attention`（退出码 5），其他情况按失败处理。
 

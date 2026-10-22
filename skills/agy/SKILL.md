@@ -35,7 +35,8 @@ The mode default (flash) fits most work. Switch with `--model` when the task cal
 | --- | --- | --- | --- |
 | `flash` (default) | broad, fast agentic work: research, review, implement, quick asks | Gemini 5h + weekly windows, rotated across accounts | anything without a reason to switch; `--effort low` for lookups, `high` for review/implement |
 | `argon` | frontier reasoning: deep multi-step investigation, subtle bugs, architecture, long documents (256k+), charts/images, legal/finance/science writing | its own weekly-only pool, much smaller than flash's; can be slow or time out | the task is hard or costly to get wrong, and `models` shows argon's weekly comfortably above what the task needs |
-| Claude Sonnet / Opus 5.5 | - | the fallback reserve | never ask for it: agy-pick switches to Sonnet itself once Gemini is out |
+| Claude Sonnet 5.5 | fast routine coding and documents; what the fallback runs | the fallback reserve (Claude group) | never ask for it: agy-pick switches to Sonnet itself once Gemini is out; `--model` refuses Claude and GPT ids |
+| Claude Opus 5.5 | ambiguous, long-running work needing sustained judgment | same Claude reserve | not used by this skill |
 
 Measured on one agy-pick review (high effort, 2026-10-22): argon took 13 min and 72k output tokens for 3 focused, well-evidenced findings; flash took 14 min and 114k for 5 broader ones. Wall time is similar on agentic work; argon spends fewer tokens and goes deeper.
 
