@@ -626,6 +626,29 @@ function queryAgyModels() {
   }
 }
 
+/** agy-pick's `--status` as one line per account, or null when AGY_BIN is
+ *  plain agy (or anything else that does not answer with that JSON). */
+function agyPickQuota() {
+  const agy = agyCommand(['--status']);
+  const r = spawnSync(agy.cmd, agy.args, { encoding: 'utf8', timeout: 20_000, windowsHide: true });
+  let status;
+  try {
+    status = JSON.parse(r.stdout);
+  } catch {
+    return null;
+  }
+  if (r.status !== 0 || !status || typeof status !== 'object') return null;
+  const pct = (x) => (typeof x === 'number' ? `${Math.round(x * 100)}%` : '-');
+  const lines = Object.entries(status).map(([account, groups]) => {
+    const windows = Object.entries(groups && typeof groups === 'object' ? groups : {})
+      .filter(([, v]) => Array.isArray(v) && v.length === 2);
+    return windows.length ? `  ${account}: ` + windows.map(([g, [h5, wk]]) => `${g} ${pct(h5)}/${pct(wk)}`).join(', ') : null;
+  });
+  // not agy-pick's shape unless at least one account reports a window
+  if (!lines.some(Boolean)) return null;
+  return lines.map((l, i) => l || `  ${Object.keys(status)[i]}: unknown`).join('\n');
+}
+
 function recommendCompatibleModel(requestedModel, availableModelIds) {
   const effortMatch = requestedModel ? requestedModel.match(/-(low|medium|high)$/) : null;
   const effort = effortMatch ? effortMatch[1] : null;
@@ -1926,6 +1949,8 @@ function main() {
       const discovery = queryAgyModels();
       if (!discovery.ok) die(`\`agy models\` failed: ${discovery.error}`);
       process.stdout.write(formatModels(discovery.models) + '\n');
+      const quota = agyPickQuota();
+      if (quota) process.stdout.write(`\nquota left (5h / weekly) per account, from agy-pick:\n${quota}\n`);
       return;
     }
     case 'setup':

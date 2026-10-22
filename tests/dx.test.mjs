@@ -343,6 +343,20 @@ describe('--model resolves against the live `agy models` list', () => {
     assert.doesNotMatch(r.stdout, /Fetching/);
   });
 
+  test('models appends agy-pick quota, and only for agy-pick\'s --status shape', () => {
+    const sb = sandbox('models-quota');
+    const pick = path.join(sb.root, 'fake-pick.mjs');
+    fs.writeFileSync(pick, `if (process.argv[2] === '--status') console.log(JSON.stringify({
+      a: { Gemini: [0.5, 0.25], 'Gemini 4 Argon': [null, 0.9] }, b: { Gemini: null } }));
+      else console.log('gemini-3.8-flash-low\\tGemini 3.8 Flash (Low)');`);
+    const r = run(sb, ['models'], { AGY_BIN: pick });
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /^  a: Gemini 50%\/25%, Gemini 4 Argon -\/90%$/m);
+    assert.match(r.stdout, /^  b: unknown$/m);
+    // plain agy answers --status with something else: no quota section
+    assert.doesNotMatch(run(sb, ['models']).stdout, /quota left/);
+  });
+
   test('a unique part of a family takes --effort', () => {
     const sb = sandbox('model-part');
     const r = run(sb, ['ask', '--model', 'pro', '--effort', 'low', '--prompt', 'q']);
