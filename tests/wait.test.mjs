@@ -9,6 +9,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { sandbox, run, jobIdOf, jobLog, waitForJob } from './helpers.mjs';
 
 describe('status <id> exit codes', () => {
@@ -129,4 +130,39 @@ describe('wait', () => {
     assert.equal(r.code, 0, r.stderr);
     assert.match(r.stdout, new RegExp(`# Job ${id} `));
   });
+});
+
+describe('warnings flag', () => {
+  test('agy-pick stderr lines alone do not trigger the diagnostics tail, but stay in the log', async () => {
+    const sb = sandbox('waitc-pick-quiet');
+    const id = jobIdOf(run(sb, ['research', '--prompt', 'a topic'], {
+      FAKE_AGY_STDERR: 'agy-pick: using account alice (share accounts), model gemini-3.8-flash-high',
+    }).stdout);
+    assert.equal(await waitForJob(sb, id), 'done');
+    const w = run(sb, ['wait', id]);
+    assert.equal(w.code, 0, w.stderr);
+    assert.doesNotMatch(w.stderr, /Job diagnostics/);
+    assert.match(jobLog(sb, id), /agy-pick: using account alice/);
+  });
+
+  test('a clean implement is not a warning', async () => {
+    const sb = sandbox('waitc-implement-quiet');
+    const id = jobIdOf(run(sb, ['implement', '--prompt', 'a task']).stdout);
+    assert.equal(await waitForJob(sb, id), 'done');
+    const w = run(sb, ['wait', id]);
+    assert.equal(w.code, 0, w.stderr);
+    assert.match(w.stdout, /Working tree clean after implement/);
+    assert.doesNotMatch(w.stderr, /Job diagnostics/);
+  });
+});
+
+test('the printed wait command works from outside the repository', { skip: process.platform === 'win32' }, async () => {
+  const sb = sandbox('waitc-abs-cmd');
+  const started = run(sb, ['research', '--prompt', 'a topic']);
+  const id = jobIdOf(started.stdout);
+  const cmd = /Collect: run `([^`]+)`/.exec(started.stdout)[1];
+  await waitForJob(sb, id);
+  const r = spawnSync('sh', ['-c', cmd], { cwd: sb.root, encoding: 'utf8', env: { ...process.env, HOME: sb.home } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, new RegExp(`# Job ${id}`));
 });

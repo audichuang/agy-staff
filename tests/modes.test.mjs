@@ -71,7 +71,7 @@ describe('execution style is fixed per mode', () => {
       const id = jobIdOf(r.stdout);
       assert.match(id, new RegExp(`^${mode}-`));
       // the collect contract is stated in the job-start output itself
-      assert.match(r.stdout, new RegExp('Collect: run `wait ' + id + ' --timeout \\d+m`'));
+      assert.match(r.stdout, new RegExp('Collect: run `cd .* && node .*agy-companion\\.mjs\'? wait ' + id + ' --timeout \\d+m`'));
       assert.match(r.stdout, /one background wait per job/);
       // the dispatch itself must not have blocked on agy — no telemetry on
       // either stream, the run has not happened yet

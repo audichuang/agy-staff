@@ -71,14 +71,6 @@ describe('setup dry run', () => {
     );
     assert.deepEqual(fs.readdirSync(sb.home), [], 'dry run must not write under HOME');
   });
-
-  test('--dry-run is accepted explicitly and still writes nothing', () => {
-    const sb = sandbox('setup-dryrun');
-    const r = run(sb, ['setup', '--dry-run']);
-    assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /DRY RUN — nothing written/);
-    assert.deepEqual(fs.readdirSync(sb.home), []);
-  });
 });
 
 

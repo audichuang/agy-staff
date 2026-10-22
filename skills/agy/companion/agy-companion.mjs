@@ -138,20 +138,15 @@ const DEFAULTS = {
 
 // agy only accepts effort-suffixed model ids; bare family names are rejected
 // with status ERROR ("--model gemini-3.8-flash requires --effort").
-// Known ids from `agy models` (v1.1.13):
+// Known ids: gemini-3.8-flash-* verified in agy 1.4.4 call logs; gemini-3.1-pro-*
+// backs the `pro` alias, unverified. Callers only ask for Gemini: agy-pick
+// (AGY_BIN) swaps in Claude itself once Gemini is out.
 const KNOWN_MODELS = new Set([
   'gemini-3.8-flash-high', 'gemini-3.8-flash-medium', 'gemini-3.8-flash-low',
-  'gemini-3.7-flash-high', 'gemini-3.7-flash-medium', 'gemini-3.7-flash-low',
-  'gemini-3.6-flash-high', 'gemini-3.6-flash-medium', 'gemini-3.6-flash-low',
-  'gemini-3.5-flash-high', 'gemini-3.5-flash-medium', 'gemini-3.5-flash-low',
   'gemini-3.1-pro-high', 'gemini-3.1-pro-low',
-  'claude-sonnet-4-6', 'claude-opus-4-6-thinking', 'gpt-oss-120b-medium',
 ]);
 const MODEL_FAMILIES = {
   'gemini-3.8-flash': ['low', 'medium', 'high'],
-  'gemini-3.7-flash': ['low', 'medium', 'high'],
-  'gemini-3.6-flash': ['low', 'medium', 'high'],
-  'gemini-3.5-flash': ['low', 'medium', 'high'],
   'gemini-3.1-pro': ['low', 'high'],
 };
 const MODEL_ALIASES = { flash: 'gemini-3.8-flash', pro: 'gemini-3.1-pro' };
@@ -173,7 +168,7 @@ function normalizeModel(raw, effort) {
     return `${name}-${e}`;
   }
   // future-tolerance: pass through anything already effort-suffixed
-  if (/-(low|medium|high|thinking)$/.test(name)) return name;
+  if (/-(low|medium|high)$/.test(name)) return name;
   die(
     `unknown model id "${raw}". agy needs effort-suffixed ids, e.g. ` +
       `gemini-3.8-flash-low|medium|high, gemini-3.1-pro-low|high. ` +
@@ -415,7 +410,7 @@ function pidAlive(pid) {
 }
 
 const VALUE_FLAGS = new Set(['job', 'conversation', 'model', 'effort', 'timeout', 'restrict', 'prompt', 'prompt-file']);
-const BOOL_FLAGS = new Set(['continue', 'restricted', 'unrestricted', 'json', 'apply', 'dry-run', 'stdin']);
+const BOOL_FLAGS = new Set(['continue', 'restricted', 'unrestricted', 'json', 'apply', 'stdin']);
 
 // Flags dropped in 0.2. They get their own error instead of falling through to
 // "unknown flag", so a 0.1 caller learns what replaced them.
@@ -718,6 +713,24 @@ function agyArgs({ prompt, model, timeout, conversation, unrestricted, jsonSchem
   return args;
 }
 
+// agy-pick (the multi-account AGY_BIN wrapper) writes `agy-pick: ` lines to
+// stderr on every call; they are provenance, not agy warnings.
+const AGY_PICK_LINE = /^agy-pick: .*$/gm;
+
+function authHint(text) {
+  const account = /^agy-pick: using account (\S+)/m.exec(text || '')?.[1];
+  return account ? `run \`agy-as ${account}\` to log in to that account` : 'run `agy-as <account>` (the account agy-pick names on stderr) to log in';
+}
+
+/** Relay agy-pick's quota refusal or a logged-out account when agy produced no
+ *  result payload; otherwise ''. */
+function agyPickHints(text) {
+  const refusal = /^agy-pick: .*out of Gemini and Claude quota.*$/m.exec(text || '');
+  if (refusal) return `\nagy-pick refused to run agy (no account has quota left): ${refusal[0].slice('agy-pick: '.length)}`;
+  if (/not logged into Antigravity/i.test(text || '')) return `\nagy is not logged in: ${authHint(text)}.`;
+  return '';
+}
+
 function runAgy(invoke) {
   const { model, timeout } = invoke;
   const args = agyArgs(invoke, 'json');
@@ -762,7 +775,8 @@ function runAgy(invoke) {
     let msg =
       `agy did not return parseable JSON (exit ${r.status}).\n` +
       `stdout: ${stdout.slice(0, 800) || '(empty)'}\n` +
-      `stderr: ${stderr.slice(0, 800) || '(empty)'}`;
+      `stderr: ${stderr.slice(0, 800) || '(empty)'}` +
+      agyPickHints(stderr);
     // EPERM on agy's own home files or on binding localhost is the signature of
     // a harness command sandbox (e.g. Codex workspace-write). agy cannot run
     // sandboxed: it binds a local port for its language server and reads its
@@ -792,7 +806,7 @@ function runAgy(invoke) {
  *                                    --restricted run gets the setup hint
  *                                    (unrestricted runs have no rules to fix).
  */
-function triageResult({ payload, stderr, exit }, mode, profile, profileSource, requestedModel) {
+function triageResult({ payload, stderr, exit }, mode, profile, profileSource, requestedModel, jobId = null) {
   const status = (payload.status || '').toUpperCase();
   const response = (payload.response || '').trim();
   const convNote = payload.conversation_id
@@ -832,14 +846,16 @@ function triageResult({ payload, stderr, exit }, mode, profile, profileSource, r
     if (payload.error) msg += `\nagy error: ${payload.error}`;
     if (stderr) msg += `\nagy stderr: ${stderr}`;
     const hints = [];
-    if (/model|effort/i.test(errText)) {
+    // agy-pick's stderr always names the model, so only agy's own error counts.
+    if (/model|effort/i.test(payload.error || '')) {
       hints.push('invalid model id (agy needs effort-suffixed ids, e.g. gemini-3.8-flash-low — run `agy models`)');
     }
-    if (/auth|login|credential|unauthorized|401|403/i.test(errText)) {
-      hints.push('expired auth (run `agy` interactively once to re-login)');
+    if (/auth|login|credential|unauthorized|401|403|not logged into Antigravity/i.test(errText)) {
+      hints.push(`expired auth (${authHint(stderr)})`);
     }
     if (/quota|rate.?limit|resource.?exhausted|429/i.test(errText)) {
-      hints.push('exhausted quota');
+      hints.push('exhausted quota' + (jobId
+        ? ` (\`continue --job ${jobId}\` resumes on the same account; agy-pick switches it to Sonnet there)` : ''));
     }
     if (hints.length) msg += `\nLikely cause: ${hints.join('; ')}.`;
     die(msg + convNote);
@@ -1135,7 +1151,7 @@ async function executeRun(resolved, prompt, opts, execution = null) {
   try {
     result = execution ? await execution(invoke) : runAgy(invoke);
     rememberConversation(resolved, result.payload.conversation_id, opts.jobId);
-    response = triageResult(result, resolved.mode, resolved.profile, resolved.profileSource, resolved.model);
+    response = triageResult(result, resolved.mode, resolved.profile, resolved.profileSource, resolved.model, opts.jobId);
   } catch (error) {
     error.workspace = {
       before: excerpt(workspaceBefore?.join('\n') ?? 'Git status unavailable', 3000),
@@ -1154,7 +1170,8 @@ async function executeRun(resolved, prompt, opts, execution = null) {
   }
   const payload = result.payload;
   const treeAfter = treeBefore ? porcelainSnapshot() : null;
-  opts.warnings = !!(result.stderr || result.observationWarnings?.length || result.exit !== 0 || (payload.status && payload.status.toUpperCase() !== 'SUCCESS'));
+  const agyStderr = (result.stderr || '').replace(AGY_PICK_LINE, '').trim();
+  opts.warnings = !!(agyStderr || result.observationWarnings?.length || result.exit !== 0 || (payload.status && payload.status.toUpperCase() !== 'SUCCESS'));
 
   // Telemetry is plumbing, not content: it goes to stderr so it never mixes
   // into the deliverable. Foreground runs put it on the caller's stderr;
@@ -1168,10 +1185,13 @@ async function executeRun(resolved, prompt, opts, execution = null) {
   );
 
   // Guard output is part of the body: the calling agent must act on it.
+  // The implement report is expected output (it prints even for a clean tree);
+  // only an unexpected tree delta is a warning.
   let guard = '';
   if (implementGuardApplies(resolved)) guard += implementPostcondition(implementBefore);
-  if (treeReportApplies(resolved)) guard += treeDeltaReport(resolved.mode, treeBefore, treeAfter);
-  opts.warnings ||= !!guard;
+  const delta = treeReportApplies(resolved) ? treeDeltaReport(resolved.mode, treeBefore, treeAfter) : '';
+  guard += delta;
+  opts.warnings ||= !!delta;
   return guard ? response + '\n' + guard : response;
 }
 
@@ -1253,7 +1273,7 @@ async function dispatch(resolved, prompt, opts) {
       `job id: ${jobId} (pid ${child.pid})\n` +
       `model: ${resolved.model}  profile: ${resolved.profile}  timeout: ${resolved.timeout}\n` +
       `result file (written when the job finishes): ${resultFile}\n` +
-      `Collect: run \`wait ${jobId} --timeout 10m\` as a background command ` +
+      `Collect: run \`cd ${shellArg(repoRoot())} && node ${shellArg(SELF)} wait ${jobId} --timeout 9m\` as a background command ` +
       `(one background wait per job; exit 0 = result printed, 2 = still running — wait again for the same job, without extra progress checks).\n` +
       `Progress only if the user asks: \`observe ${jobId}\`   Stop: \`cancel ${jobId}\`\n`
   );
@@ -1289,6 +1309,7 @@ async function workerMain(jobId) {
         if (error.reason === 'missing_result' && isUnsupportedModelError(error.diagnosticText || '')) {
           handleUnsupportedModel({ requestedModel: invoke.model, errText: error.diagnosticText, originalError: error.diagnosticText });
         }
+        if (error.reason === 'missing_result') error.message += agyPickHints(error.diagnosticText);
         throw error;
       });
     });
@@ -1864,19 +1885,21 @@ function printSetupNotes() {
 
 function main() {
   const [cmd, ...rest] = process.argv.slice(2);
-  if (!cmd) {
-    die(
-      'usage: agy-companion.mjs <staffer|research|review|implement|ask|continue|restart|observe|status|wait|result|cancel|setup> [flags]\n' +
-        'flags: --restricted|--unrestricted --model <id> --effort <l|m|h> --timeout <dur> ' +
-        '--prompt <text> --prompt-file <path> --stdin --conversation <id> --continue --json (review) ' +
-        '--apply --restrict <modes|none> (setup)\n' +
-        'task text for staffer/research/review/implement/ask/continue comes from exactly one of ' +
-        '--prompt <text>, --prompt-file <path>, or --stdin.\n' +
-        'staffer/research/review/implement run unrestricted by default (no setup needed); --restricted is the ' +
-        'hardening opt-in that uses the evidence-gathering allowlist from `setup`. ask is always tool-free. ' +
-        'Per-repo policy: `setup --restrict review,research` makes those modes restricted by default here.'
-    );
+  const usage =
+    'usage: agy-companion.mjs <staffer|research|review|implement|ask|continue|restart|observe|status|wait|result|cancel|setup> [flags]\n' +
+    'flags: --restricted|--unrestricted --model <id> --effort <l|m|h> --timeout <dur> ' +
+    '--prompt <text> --prompt-file <path> --stdin --conversation <id> --continue --json (review) ' +
+    '--apply --restrict <modes|none> (setup)\n' +
+    'task text for staffer/research/review/implement/ask/continue comes from exactly one of ' +
+    '--prompt <text>, --prompt-file <path>, or --stdin.\n' +
+    'staffer/research/review/implement run unrestricted by default (no setup needed); --restricted is the ' +
+    'hardening opt-in that uses the evidence-gathering allowlist from `setup`. ask is always tool-free. ' +
+    'Per-repo policy: `setup --restrict review,research` makes those modes restricted by default here.';
+  if (cmd === '--help' || cmd === '-h') {
+    process.stdout.write(usage + '\n');
+    return;
   }
+  if (!cmd) die(usage);
   const opts = parseFlags(rest, { taskCommand: MODES.includes(cmd) || cmd === 'continue' });
 
   if (MODES.includes(cmd)) return cmdRun(cmd, opts);

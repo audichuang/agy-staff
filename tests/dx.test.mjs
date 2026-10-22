@@ -323,3 +323,12 @@ describe('.agy-staff/ hygiene is automatic', () => {
     assert.equal(fs.readFileSync(exclude, 'utf8'), before);
   });
 });
+
+test('--help and -h print usage and exit 0', () => {
+  const sb = sandbox('help');
+  for (const flag of ['--help', '-h']) {
+    const r = run(sb, [flag]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /^usage: agy-companion\.mjs/);
+  }
+});

@@ -272,7 +272,7 @@ companion/agy-companion.mjs    command entrypoint, modes, job management and set
 companion/stream-worker.mjs    streaming execution, process cleanup and deadlines
 companion/observation.mjs      event parsing, progress snapshots and output budgets
 companion/state-lock.mjs       state-write locking and stale-lock recovery
-templates/                    shared prompt templates (staffer/ask/research/review/implement) and harness-compatibility.md
+templates/                    shared prompt templates (staffer/ask/research/review/implement)
 .claude-plugin/               Claude Code plugin + self-hosting marketplace manifests
 .codex-plugin/plugin.json     Codex plugin manifest
 .agents/plugins/              Codex marketplace manifest

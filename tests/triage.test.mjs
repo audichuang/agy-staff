@@ -203,3 +203,51 @@ describe('unsupported model error handling without silent fallback', () => {
     assert.doesNotMatch(rUnrelated.stderr, /Available models/);
   });
 });
+
+describe('agy-pick (AGY_BIN wrapper) diagnostics', () => {
+  const PICK = 'agy-pick: using account alice (share accounts), model gemini-3.8-flash-high';
+
+  test('a 429 with agy-pick stderr gets the quota hint, not the model hint', () => {
+    const sb = sandbox('triage-pick-429');
+    const r = run(sb, ['ask', '--prompt', 'a question'], {
+      FAKE_AGY_STATUS: 'ERROR', FAKE_AGY_RESPONSE: '',
+      FAKE_AGY_ERROR: '429 Individual quota reached', FAKE_AGY_STDERR: PICK,
+    });
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /Likely cause: exhausted quota/);
+    assert.doesNotMatch(r.stderr, /invalid model id/);
+  });
+
+  test('a background 429 names `continue --job <id>` and the Sonnet switch', async () => {
+    const sb = sandbox('triage-pick-429-bg');
+    const id = jobIdOf(run(sb, ['research', '--prompt', 'a topic'], {
+      FAKE_AGY_STATUS: 'ERROR', FAKE_AGY_RESPONSE: '',
+      FAKE_AGY_ERROR: 'Individual quota reached', FAKE_AGY_STDERR: PICK,
+    }).stdout);
+    assert.equal(await waitForJob(sb, id), 'error');
+    const w = run(sb, ['wait', id]);
+    assert.match(w.stdout, new RegExp('`continue --job ' + id + '` resumes on the same account; agy-pick switches it to Sonnet'));
+  });
+
+  test('an agy-pick quota refusal (no JSON, exit 1) is relayed with its frees-up time', async () => {
+    const sb = sandbox('triage-pick-refusal');
+    const refusal = 'agy-pick: every account is out of Gemini and Claude quota; the first one frees up at 2026-10-22 18:00';
+    const env = { FAKE_AGY_NO_JSON: '1', FAKE_AGY_STDERR: refusal };
+    const fg = run(sb, ['ask', '--prompt', 'a question'], env);
+    assert.equal(fg.code, 1);
+    assert.match(fg.stderr, /agy-pick refused to run agy \(no account has quota left\): every account .* frees up at 2026-10-22 18:00/);
+
+    const id = jobIdOf(run(sb, ['research', '--prompt', 'a topic'], env).stdout);
+    assert.equal(await waitForJob(sb, id), 'error');
+    assert.match(run(sb, ['wait', id]).stdout, /agy-pick refused to run agy .*frees up at 2026-10-22 18:00/);
+  });
+
+  test('"not logged into Antigravity" points at `agy-as <account>` from the agy-pick line', () => {
+    const sb = sandbox('triage-pick-auth');
+    const r = run(sb, ['ask', '--prompt', 'a question'], {
+      FAKE_AGY_NO_JSON: '1', FAKE_AGY_STDERR: `${PICK}\nerror getting token source: You are not logged into Antigravity.`,
+    });
+    assert.equal(r.code, 1);
+    assert.match(r.stderr, /agy is not logged in: run `agy-as alice` to log in/);
+  });
+});

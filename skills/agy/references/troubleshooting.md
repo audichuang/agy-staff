@@ -24,4 +24,4 @@ When agy reports an error but response text came back, the companion delivers th
 
 - Do not retry with different flags unless the error message itself names the exact flag.
 - For a timeout, inspect the retained result and workspace. Exit 5 means the conversation is resumable: ask the user whether to continue with the suggested timeout or stop, and recover only after explicit confirmation. Background `--timeout` defaults to 60m and accepts at most 120m; increase it only below that ceiling, otherwise narrow the task. A known conversation ID lets `continue` resume with its recorded configuration. A response already received before the hard deadline is delivered with a warning, so do not restart a completed job merely because cleanup timed out.
-- Model-id errors fail pre-flight with the valid ids in the message (`agy models` lists them); expired auth means running `agy` interactively once to re-login.
+- Model-id errors fail pre-flight with the valid ids in the message (`agy models` lists them); expired auth ("not logged into Antigravity") means running `agy-as <account>` to log in, with the account named on the `agy-pick: using account` stderr line.
