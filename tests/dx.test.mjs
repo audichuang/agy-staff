@@ -364,6 +364,21 @@ describe('--model resolves against the live `agy models` list', () => {
     assert.equal(modelOf(sb), 'gemini-3.1-pro-low');
   });
 
+  test('bare --effort maps to Hydrogen and accepts xhigh; ask defaults to hydrogen-low', () => {
+    const sb = sandbox('effort-xhigh');
+    const r = run(sb, ['ask', '--effort', 'xhigh', '--prompt', 'q']);
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(modelOf(sb), 'gemini-4-hydrogen-xhigh');
+    assert.equal(run(sb, ['ask', '--prompt', 'q']).code, 0);
+    assert.equal(modelOf(sb), 'gemini-4-hydrogen-low');
+  });
+
+  test('--model hydrogen resolves the family with --effort', () => {
+    const sb = sandbox('model-hydrogen');
+    assert.equal(run(sb, ['ask', '--model', 'hydrogen', '--effort', 'xhigh', '--prompt', 'q']).code, 0);
+    assert.equal(modelOf(sb), 'gemini-4-hydrogen-xhigh');
+  });
+
   test('a part matching several versions of one family takes the newest', () => {
     const sb = sandbox('model-newest');
     const r = run(sb, ['ask', '--model', 'flash', '--prompt', 'q']);

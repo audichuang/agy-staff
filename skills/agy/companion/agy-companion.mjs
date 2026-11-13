@@ -35,7 +35,7 @@
  *   --continue            reuse the last conversation id for this mode
  *   --model <id>          model id, family, or unique part of one (see `models`);
  *                         checked against `agy models`, overrides --effort
- *   --effort <l|m|h>      low|medium|high → gemini-3.8-flash-<effort>
+ *   --effort <tier>       low|medium|high|xhigh → gemini-4-hydrogen-<effort>
  *   --restricted          hardening opt-in: keep agy's permission enforcement
  *                         on (wants setup's evidence-gathering allowlist)
  *   --unrestricted        pass --dangerously-skip-permissions (already the
@@ -115,11 +115,11 @@ const MODES = ['staffer', 'research', 'review', 'implement', 'ask'];
 
 const DEFAULTS = {
   model: {
-    staffer: 'gemini-3.8-flash-medium',
-    research: 'gemini-3.8-flash-high',
-    review: 'gemini-3.8-flash-medium',
-    implement: 'gemini-3.8-flash-high',
-    ask: 'gemini-3.8-flash-low',
+    staffer: 'gemini-4-hydrogen-medium',
+    research: 'gemini-4-hydrogen-high',
+    review: 'gemini-4-hydrogen-medium',
+    implement: 'gemini-4-hydrogen-high',
+    ask: 'gemini-4-hydrogen-low',
   },
   // Every tool-using mode is unrestricted by default: headless agy denies
   // unlisted tool calls, so a restricted default made research/review come
@@ -139,11 +139,12 @@ const DEFAULTS = {
 };
 
 // agy only accepts effort-suffixed model ids; bare family names are rejected
-// with status ERROR ("--model gemini-3.8-flash requires --effort").
+// with status ERROR ("--model gemini-4-hydrogen requires --effort").
 // An explicit --model is checked against the live `agy models` list, so a new
 // model needs no change here; only DEFAULTS names ids. Callers only ask for
 // Gemini: agy-pick (AGY_BIN) swaps in Claude itself once Gemini is out.
-const EFFORT_SUFFIX = /-(low|medium|high)$/;
+const EFFORT_SUFFIX = /-(low|medium|high|xhigh)$/;
+const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 
 function formatModels(models) {
   return models.map((m) => `${m.id}${m.desc ? `\t${m.desc}` : ''}`).join('\n');
@@ -164,7 +165,7 @@ function normalizeModel(raw, effort) {
   if (!discovery.ok) {
     // cannot check offline; agy itself still rejects a bad full id
     if (EFFORT_SUFFIX.test(raw)) return gemini(raw);
-    die(`cannot resolve --model "${raw}": \`agy models\` failed (${discovery.error}). Pass a full id such as gemini-3.8-flash-medium.`);
+    die(`cannot resolve --model "${raw}": \`agy models\` failed (${discovery.error}). Pass a full id such as gemini-4-hydrogen-medium.`);
   }
   const ids = discovery.models.map((m) => m.id);
   if (ids.includes(raw)) return gemini(raw);
@@ -175,7 +176,7 @@ function normalizeModel(raw, effort) {
   }
   const families = [...efforts.keys()];
   let matches = families.includes(raw) ? [raw] : families.filter((f) => f.includes(raw));
-  const shape = (f) => f.replace(/\d+(\.\d+)*/g, '#'); // gemini-3.8-flash -> gemini-#-flash
+  const shape = (f) => f.replace(/\d+(\.\d+)*/g, '#'); // gemini-4-hydrogen -> gemini-#-hydrogen
   if (matches.length > 1 && new Set(matches.map(shape)).size === 1) {
     matches = [matches.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).at(-1)];
   }
@@ -183,7 +184,7 @@ function normalizeModel(raw, effort) {
     const family = gemini(matches[0]);
     let e = effort || 'medium';
     if (!efforts.get(family).includes(e)) {
-      const fallback = ['high', 'medium', 'low'].find((x) => efforts.get(family).includes(x));
+      const fallback = ['high', 'xhigh', 'medium', 'low'].find((x) => efforts.get(family).includes(x));
       process.stderr.write(`agy-staff: ${family} has no "${e}" effort; using ${family}-${fallback}\n`);
       e = fallback;
     }
@@ -191,7 +192,7 @@ function normalizeModel(raw, effort) {
   }
   die(
     `${matches.length ? `"${raw}" matches several models (${matches.join(', ')})` : `unknown model "${raw}"`}. ` +
-      `Pass a Gemini id below, a family with --effort, or part of a family name (e.g. "flash", "argon"):\n` +
+      `Pass a Gemini id below, a family with --effort, or part of a family name (e.g. "hydrogen", "argon"):\n` +
       formatModels(discovery.models)
   );
 }
@@ -672,6 +673,7 @@ function recommendCompatibleModel(requestedModel, availableModelIds) {
     const sameEffort = availableModelIds.filter((id) => id.endsWith(`-${effort}`));
     if (sameEffort.length > 0) {
       const flashOrder = [
+        `gemini-4-hydrogen-${effort}`,
         `gemini-3.8-flash-${effort}`,
         `gemini-3.7-flash-${effort}`,
         `gemini-3.6-flash-${effort}`,
@@ -696,7 +698,9 @@ function recommendCompatibleModel(requestedModel, availableModelIds) {
     }
   }
 
-  const anyFlash = availableModelIds.find((id) => id.includes('flash') && id !== requestedModel);
+  const anyFlash =
+    availableModelIds.find((id) => id.includes('hydrogen') && id !== requestedModel) ||
+    availableModelIds.find((id) => id.includes('flash') && id !== requestedModel);
   if (anyFlash) return anyFlash;
 
   return availableModelIds.find((id) => id !== requestedModel) || null;
@@ -728,7 +732,7 @@ function handleUnsupportedModel({ requestedModel, errText, originalError, convNo
     msg +=
       `Model discovery via \`agy models\` failed (${discovery.error}).\n` +
       `Please run \`agy models\` to check available models.\n` +
-      `Updating agy is preferred to use the latest default (gemini-3.8-flash).`;
+      `Updating agy is preferred to use the latest default (gemini-4-hydrogen).`;
     die(msg + (convNote || ''));
   }
 
@@ -743,7 +747,7 @@ function handleUnsupportedModel({ requestedModel, errText, originalError, convNo
   if (best) {
     msg += `Best same-effort compatible recommendation: --model ${best}\n`;
   }
-  msg += `Updating agy is preferred to use the latest default (gemini-3.8-flash).`;
+  msg += `Updating agy is preferred to use the latest default (gemini-4-hydrogen).`;
   die(msg + (convNote || ''));
 }
 
@@ -890,7 +894,7 @@ function triageResult({ payload, stderr, exit }, mode, profile, profileSource, r
     const hints = [];
     // agy-pick's stderr always names the model, so only agy's own error counts.
     if (/model|effort/i.test(payload.error || '')) {
-      hints.push('invalid model id (agy needs effort-suffixed ids, e.g. gemini-3.8-flash-low — run the companion \`models\` subcommand)');
+      hints.push('invalid model id (agy needs effort-suffixed ids, e.g. gemini-4-hydrogen-low — run the companion \`models\` subcommand)');
     }
     if (/auth|login|credential|unauthorized|401|403|not logged into Antigravity/i.test(errText)) {
       hints.push(`expired auth (${authHint(stderr)})`);
@@ -959,14 +963,14 @@ function resolveRun(mode, opts, priorJob = null) {
   }
 
   // model / effort
-  if (opts.effort && !['low', 'medium', 'high'].includes(opts.effort)) {
-    die('--effort must be low|medium|high');
+  if (opts.effort && !EFFORTS.includes(opts.effort)) {
+    die('--effort must be low|medium|high|xhigh');
   }
   let model;
   if (opts.model) {
     model = normalizeModel(opts.model, opts.effort);
   } else if (opts.effort) {
-    model = `gemini-3.8-flash-${opts.effort}`;
+    model = `gemini-4-hydrogen-${opts.effort}`;
   } else {
     model = DEFAULTS.model[mode];
   }

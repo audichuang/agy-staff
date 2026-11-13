@@ -19,26 +19,27 @@ Run it **unsandboxed**: agy needs a localhost port and its OAuth token file. In 
 
 | Mode | Use for | Runs | Default model / profile |
 | --- | --- | --- | --- |
-| `staffer` | anything else (image generation only when the user names agy; name the output path) | background | flash-medium / unrestricted |
-| `research` | survey or deep dive on a topic or codebase | background | flash-high / unrestricted |
-| `review` | independent critique of code or a plan - compose the task per `references/code-review.md` or `references/general-review.md` | background | flash-medium / unrestricted |
-| `implement` | a scoped change agy makes in the working tree | background | flash-high / unrestricted |
-| `ask` | one quick question, zero tools; also the smoke test (`--prompt "reply with OK"`) | foreground | flash-low / always restricted |
+| `staffer` | anything else (image generation only when the user names agy; name the output path) | background | hydrogen-medium / unrestricted |
+| `research` | survey or deep dive on a topic or codebase | background | hydrogen-high / unrestricted |
+| `review` | independent critique of code or a plan - compose the task per `references/code-review.md` or `references/general-review.md` | background | hydrogen-medium / unrestricted |
+| `implement` | a scoped change agy makes in the working tree | background | hydrogen-high / unrestricted |
+| `ask` | one quick question, zero tools; also the smoke test (`--prompt "reply with OK"`) | foreground | hydrogen-low / always restricted |
 
 Coordinating several assignments or a long task: read `references/lead.md`.
 
 ## Pick a model
 
-The mode default (flash) fits most work. Switch with `--model` when the task calls for it; `models` shows the ids on offer and each account's quota left.
+The mode default (hydrogen) fits most work. Switch with `--model` when the task calls for it; `models` shows the ids on offer and each account's quota left.
 
 | `--model` | Best at | Cost to you | Choose it when |
 | --- | --- | --- | --- |
-| `flash` (default) | broad, fast agentic work: research, review, implement, quick asks | Gemini 5h + weekly windows, rotated across accounts | anything without a reason to switch; `--effort low` for lookups, `high` for review/implement |
-| `argon` | frontier reasoning: deep multi-step investigation, subtle bugs, architecture, long documents (256k+), charts/images, legal/finance/science writing | its own weekly-only pool, much smaller than flash's; can be slow or time out | the task is hard or costly to get wrong, and `models` shows argon's weekly comfortably above what the task needs |
+| `hydrogen` (default) | broad, fast agentic work: research, review, implement, quick asks | Gemini 5h + weekly windows, rotated across accounts | anything without a reason to switch; `--effort low` for lookups, `high` for review/implement, `xhigh` for the hardest of those |
+| `argon` | frontier reasoning: deep multi-step investigation, subtle bugs, architecture, long documents (256k+), charts/images, legal/finance/science writing | its own weekly-only pool, much smaller than hydrogen's; can be slow or time out | the task is hard or costly to get wrong, and `models` shows argon's weekly comfortably above what the task needs |
+| `gemini-pro-orchestrator-g1-pro` | one message planned and checked by argon, carried out by hydrogen (edits, builds, tests); fixed setting, `--effort` ignored | not documented; may draw on argon's pool | an implement task that needs planning, as an experiment: untested here, and research or review gets the same argon answer with less overhead |
 | Claude Sonnet 5.5 | fast routine coding and documents; what the fallback runs | the fallback reserve (Claude group) | never ask for it: agy-pick switches to Sonnet itself once Gemini is out; `--model` refuses Claude and GPT ids |
 | Claude Opus 5.5 | ambiguous, long-running work needing sustained judgment | same Claude reserve | not used by this skill |
 
-Measured on one agy-pick review (high effort, 2026-10-22): argon took 13 min and 72k output tokens for 3 focused, well-evidenced findings; flash took 14 min and 114k for 5 broader ones. Wall time is similar on agentic work; argon spends fewer tokens and goes deeper.
+Measured on one agy-pick review (high effort, 2026-10-22): argon took 13 min and 72k output tokens for 3 focused, well-evidenced findings; 3.8 Flash (the previous default) took 14 min and 114k for 5 broader ones. Wall time is similar on agentic work; argon spends fewer tokens and goes deeper.
 
 ## Write the task
 
@@ -48,7 +49,7 @@ Measured on one agy-pick review (high effort, 2026-10-22): argon took 13 min and
 
 ## Flags
 
-`--model <id>` (an id from `node "<skill-dir>/companion/agy-companion.mjs" models`, which lists what agy offers now; a family such as `gemini-4-argon` or a unique part such as `argon` takes `--effort`) or `--effort low|medium|high` (flash); `--restricted` (allowlisted tools only, may come back empty - `references/setup.md`); `--timeout <dur>` (60m default, 120m max; ask 2m); `--continue` / `--conversation <id>` reuse a conversation and inherit its model and profile; `--json` on review only, when machine-readable findings are requested.
+`--model <id>` (an id from `node "<skill-dir>/companion/agy-companion.mjs" models`, which lists what agy offers now; a family such as `gemini-4-argon` or a unique part such as `argon` takes `--effort`) or `--effort low|medium|high|xhigh` (hydrogen); `--restricted` (allowlisted tools only, may come back empty - `references/setup.md`); `--timeout <dur>` (60m default, 120m max; ask 2m); `--continue` / `--conversation <id>` reuse a conversation and inherit its model and profile; `--json` on review only, when machine-readable findings are requested.
 
 ## Collect the result
 

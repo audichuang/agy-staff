@@ -8,11 +8,11 @@
 
 | 角色技能 | companion 命令 | 用途 | 默认模型 | 执行方式 |
 | --- | --- | --- | --- | --- |
-| `ask` | `ask` | 不使用工具的单轮问答，也可用于安装后的简单验证 | `gemini-3.8-flash-low` | 同步返回答案 |
-| `staffer` | `staffer` | 通用任务，由任务描述决定具体工作 | `gemini-3.8-flash-medium` | 返回后台任务 ID |
-| `researcher` | `research` | 调研并引用来源，注明尚未验证的结论 | `gemini-3.8-flash-high` | 返回后台任务 ID |
-| `reviewer` | `review` | 审查代码、方案或决策 | `gemini-3.8-flash-medium` | 返回后台任务 ID |
-| `implementer` | `implement` | 完成范围明确的编码任务 | `gemini-3.8-flash-high` | 返回后台任务 ID |
+| `ask` | `ask` | 不使用工具的单轮问答，也可用于安装后的简单验证 | `gemini-4-hydrogen-low` | 同步返回答案 |
+| `staffer` | `staffer` | 通用任务，由任务描述决定具体工作 | `gemini-4-hydrogen-medium` | 返回后台任务 ID |
+| `researcher` | `research` | 调研并引用来源，注明尚未验证的结论 | `gemini-4-hydrogen-high` | 返回后台任务 ID |
+| `reviewer` | `review` | 审查代码、方案或决策 | `gemini-4-hydrogen-medium` | 返回后台任务 ID |
+| `implementer` | `implement` | 完成范围明确的编码任务 | `gemini-4-hydrogen-high` | 返回后台任务 ID |
 
 `lead` 为当前主 agent 提供任务编排指导，复用现有 companion 模式，没有自己的运行模式；Claude Code 使用 `/agy:lead`，Codex 使用 `$agy:lead`，Pi 使用 `/skill:agy-lead`。
 
@@ -114,8 +114,8 @@ agy 还有与 `--project` 体系关联的项目级权限规则，可以将权限
 | --- | --- |
 | `--conversation <id>` | 继续指定的 agy 会话 |
 | `--continue` | 继续状态记录中该模式最近一次会话 |
-| `--model <id>` | 指定模型，会对照 `agy models` 的实时列表检查（`models` 子命令会列出）。模型 ID 带有推理强度后缀，如 `gemini-3.8-flash-low`；也可传模型系列名或其中一段（`argon`、`flash`，同一系列有多个版本时取最新）并配合 `--effort`。未知或有歧义的名称会在启动前报错并列出可用 ID；Claude 与 GPT 是 agy-pick 的备用额度，会被拒绝 |
-| `--effort low\|medium\|high` | 指定推理强度，是 `gemini-3.8-flash-<effort>` 的简写 |
+| `--model <id>` | 指定模型，会对照 `agy models` 的实时列表检查（`models` 子命令会列出）。模型 ID 带有推理强度后缀，如 `gemini-4-hydrogen-low`；也可传模型系列名或其中一段（`argon`、`hydrogen`，同一系列有多个版本时取最新）并配合 `--effort`。未知或有歧义的名称会在启动前报错并列出可用 ID；Claude 与 GPT 是 agy-pick 的备用额度，会被拒绝 |
+| `--effort low\|medium\|high\|xhigh` | 指定推理强度，是 `gemini-4-hydrogen-<effort>` 的简写 |
 | `--restricted` / `--unrestricted` | 覆盖本次运行的权限配置；`ask` 会忽略这两个参数 |
 | `--restrict <modes\|none>` | 用于 `setup`，设置或清除[仓库默认权限](#仓库级-policysetup---restrict) |
 | `--json` | 用于代码审查，按指定结构返回 JSON 格式的问题列表；默认使用 Markdown |
@@ -338,6 +338,8 @@ AGY 会读取工作区中的 `AGENTS.md`、`GEMINI.md` 和 `.agents/rules/*.md`�
 旧的位置参数正文会直接报错，`--prompt-file` 和 `--stdin` 仍然可用。管理命令中的位置参数是任务 ID 或其他取值，不受这项变化影响，例如 `wait <id> --timeout 30s` 仍按原方式执行。
 
 ## 从 0.4.5 迁移
+
+0.7.8 将各角色的默认模型和 `--effort` 简写从 Gemini 3.8 Flash 换成 Gemini 4 Hydrogen（推理强度不变），并新增 `xhigh`。显式 `--model` 仍可指定 Flash。
 
 0.5.0 将各角色的默认模型，以及 `flash` 别名和 `--effort` 简写，从 Gemini 3.7 Flash 调整为 Gemini 3.8 Flash。推理强度保持不变：`ask` 为 low，`staffer` 和 `reviewer` 为 medium，`researcher` 和 `implementer` 为 high。
 
