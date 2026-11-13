@@ -31,7 +31,7 @@ try {
       : stop
         ? 'Execute exactly one shell command: sh -c \'echo $$ > smoke-tool.pid; sleep 90; echo SHOULD_NOT_FINISH > smoke-completed\'. Wait for it to finish. Do not run any other command, read files, access the network, or modify any other file.'
         : 'Execute exactly one shell command: sh -c \'sleep 3; printf "STREAM_SMOKE_OK\\n"; exit 7\'. Then report STREAM_SMOKE_OK and the command exit code. Do not run any other command, read files, access the network, or modify files.';
-    const args = [kind === 'structured' ? 'review' : 'staffer', '--model', 'gemini-3.8-flash-low', '--prompt', prompt];
+    const args = [kind === 'structured' ? 'review' : 'staffer', '--model', 'gemini-4-hydrogen-low', '--prompt', prompt];
     if (kind === 'structured') args.push('--json');
     if (kind === 'hard_timeout') args.push('--timeout', '35s');
     const startTime = Date.now();

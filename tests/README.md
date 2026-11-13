@@ -43,7 +43,7 @@ round 2's equal-permissions default (`research`/`review`/`implement` all send
 `--dangerously-skip-permissions` with no flags and no setup, `--restricted` is
 the opt-in that removes it, `ask` never gets it). Also: the tiered git guards
 (`implement` injects bounded dirty-workspace prompt context, warns and proceeds outside a
-repository, defaults to `gemini-3.8-flash-high`, allows continuation over its own dirty result, and reports workspace state with the result; `review`/`research` are never
+repository, defaults to `gemini-4-hydrogen-high`, allows continuation over its own dirty result, and reports workspace state with the result; `review`/`research` are never
 blocked and instead report a working-tree delta — present when the fake `agy`
 touches a file, silent when it does not, scoped to what appeared during the run,
 and skipped entirely for `--restricted` runs); the reworded `--restricted`
@@ -100,7 +100,7 @@ AGY_REAL_CONTINUATION=1 node tests/real-continuation.integration.mjs
 AGY_REAL_CONTINUATION=1 AGY_REAL_CONTINUATION_CASE=running-guards node tests/real-continuation.integration.mjs
 ```
 
-It uses the existing AGY login and `gemini-3.8-flash-low` by default (`AGY_REAL_MODEL` overrides it). Each case creates a temporary Git repository and a real conversation. A supplied shell-tool script records timestamps while waiting for a local release signal. The simultaneous case holds the companion's existing state lock until both callers reach registration; it does not replace AGY or patch the runtime. Jobs have 120-second deadlines, the tool gate has a 65-second bound, and cleanup cancels unfinished jobs. A failed case stops the suite without an automatic retry.
+It uses the existing AGY login and `gemini-4-hydrogen-low` by default (`AGY_REAL_MODEL` overrides it). Each case creates a temporary Git repository and a real conversation. A supplied shell-tool script records timestamps while waiting for a local release signal. The simultaneous case holds the companion's existing state lock until both callers reach registration; it does not replace AGY or patch the runtime. Jobs have 120-second deadlines, the tool gate has a 65-second bound, and cleanup cancels unfinished jobs. A failed case stops the suite without an automatic retry.
 
 Assertions check that rejected requests create no job or spec, do not execute later, and identify the active job. The suite also checks that another conversation completes while the first is busy, that explicit resubmission works after completion, that prior context and configuration survive normal continuation, and that cancel-then-continue does not restart the canceled command. It records the CLI version before and after each case. The retained `summary.json`, deliveries, native logs, and captured events provide the evidence; exit 0 means the assertions passed. This opt-in suite uses model quota and is excluded from `npm test`. These bounded cases do not establish lossless recovery after arbitrary interruptions.
 

@@ -14,7 +14,7 @@ if (process.env.AGY_REAL_CONTINUATION !== '1') {
   process.exit(0);
 }
 const companion = fileURLToPath(new URL('../skills/agy/companion/agy-companion.mjs', import.meta.url));
-const model = process.env.AGY_REAL_MODEL || 'gemini-3.8-flash-low';
+const model = process.env.AGY_REAL_MODEL || 'gemini-4-hydrogen-low';
 const cases = ['running-guards', 'simultaneous', 'cancel-continue'];
 const selected = process.env.AGY_REAL_CONTINUATION_CASE;
 if (selected && !cases.includes(selected)) throw new Error(`Unknown case: ${selected}`);
