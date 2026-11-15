@@ -50,11 +50,11 @@ The mode default (hydrogen) fits most work. Switch with `--model` when the task 
 
 ## Collect the result
 
-Background modes print a job id and the full `cd '<repo>' && node '<companion>' wait <id> --timeout 9m` command; run that command as printed, in the same unsandboxed context, one wait per job. In Claude Code use either Bash `run_in_background: true`, or run it in the foreground with Bash timeout 600000. Never pipe `wait`/`result` through `tail`/`head` or `2>&1`: stdout is the result, relay it verbatim. Exit codes: 0 done, 2 still running (wait again), 3 error, 4 canceled, 5 resumable timeout (ask the user before continuing), 1 bad command. Do not call `observe` unless the user asks for progress. Full protocol - continue, restart, cancel, recovery: `references/jobs.md`.
+Background modes print a job id and the full `cd '<repo>' && node '<companion>' wait <id> --timeout 9m` command; run that command as printed, in the same unsandboxed context, one wait per job. In Claude Code use either Bash `run_in_background: true`, or run it in the foreground with Bash timeout 600000. Never pipe `wait`/`result` through `tail`/`head` or `2>&1`: stdout is the result, read all of it. Exit codes: 0 done, 2 still running (wait again), 3 error, 4 canceled, 5 resumable timeout (ask the user before continuing), 1 bad command. Do not call `observe` unless the user asks for progress. Full protocol - continue, restart, cancel, recovery: `references/jobs.md`.
 
 ## Rules
 
-- Return agy's output verbatim, before your own assessment. The `[agy-staff]` and `agy-pick:` stderr lines are metadata for you, not the user.
+- Relay agy's output in the user's language, completely and faithfully, before your own assessment: every finding with its file:line, none dropped or softened; keep code, commands and error text as printed. The `[agy-staff]` and `agy-pick:` stderr lines are metadata for you, not the user.
 - Do not fix review findings, extend agy's edits, or commit its changes unless the user asks you to.
 - After `implement` (or any run that edited files), inspect `git diff` before building on it.
 - Reviewing untrusted code unrestricted exposes you to prompt injection; prefer `--restricted` or an isolated checkout.
