@@ -37,9 +37,6 @@ The mode default (hydrogen) fits most work. Switch with `--model` when the task 
 | `argon` | frontier reasoning: deep multi-step investigation, subtle bugs, architecture, long documents (256k+), charts/images, legal/finance/science writing | its own weekly-only pool, much smaller than hydrogen's; can be slow or time out | the task is hard or costly to get wrong, and `models` shows argon's weekly comfortably above what the task needs |
 | `gemini-pro-orchestrator-g1-pro` | one message planned and checked by argon, carried out by hydrogen (edits, builds, tests); fixed setting, `--effort` ignored | argon's weekly pool (measured 2026-11-13) | an implement task that needs planning, as an experiment: untested here, and research or review gets the same argon answer with less overhead |
 | Claude Sonnet 5.5 | fast routine coding and documents; what the fallback runs | the fallback reserve (Claude group) | never ask for it: agy-pick switches to Sonnet itself once Gemini is out; `--model` refuses Claude and GPT ids |
-| Claude Opus 5.5 | ambiguous, long-running work needing sustained judgment | same Claude reserve | not used by this skill |
-
-Measured on one agy-pick review (high effort, 2026-10-22): argon took 13 min and 72k output tokens for 3 focused, well-evidenced findings; 3.8 Flash (the previous default) took 14 min and 114k for 5 broader ones. Wall time is similar on agentic work; argon spends fewer tokens and goes deeper.
 
 ## Write the task
 
