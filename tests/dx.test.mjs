@@ -347,11 +347,11 @@ describe('--model resolves against the live `agy models` list', () => {
     const sb = sandbox('models-quota');
     const pick = path.join(sb.root, 'fake-pick.mjs');
     fs.writeFileSync(pick, `if (process.argv[2] === '--status') console.log(JSON.stringify({
-      a: { Gemini: [0.5, 0.25], 'Gemini 4 Argon': [null, 0.9] }, b: { Gemini: null } }));
+      a: { Gemini: [0.5, 0.25], 'Claude and GPT': [null, 0.9] }, b: { Gemini: null } }));
       else console.log('gemini-3.8-flash-low\\tGemini 3.8 Flash (Low)');`);
     const r = run(sb, ['models'], { AGY_BIN: pick });
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /^  a: Gemini 50%\/25%, Gemini 4 Argon -\/90%$/m);
+    assert.match(r.stdout, /^  a: Gemini 50%\/25%, Claude and GPT -\/90%$/m);
     assert.match(r.stdout, /^  b: unknown$/m);
     // plain agy answers --status with something else: no quota section
     assert.doesNotMatch(run(sb, ['models']).stdout, /quota left/);
@@ -397,6 +397,17 @@ describe('--model resolves against the live `agy models` list', () => {
     assert.equal(agyCalls(sb).length, 0);
   });
 
+  test('Argon is refused: it left the Gemini 4 lineup', () => {
+    const sb = sandbox('model-argon');
+    const list = 'gemini-4-neon-high\tNeon\ngemini-4-argon-high\tArgon\ngemini-pro-orchestrator-g1-pro\tOrchestrator (Argon)';
+    for (const name of ['argon', 'gemini-4-argon-high', 'gemini-pro-orchestrator-g1-pro']) {
+      const r = run(sb, ['ask', '--model', name, '--prompt', 'q'], { FAKE_AGY_MODELS_OUTPUT: list });
+      assert.notEqual(r.code, 0, name);
+      assert.match(r.stderr, /no longer in Google's Gemini 4 lineup/);
+    }
+    assert.equal(agyCalls(sb).length, 0);
+  });
+
   test('a missing effort falls back to the highest the family has', () => {
     const sb = sandbox('model-effort');
     const r = run(sb, ['ask', '--model', 'gemini-3.1-pro', '--prompt', 'q']);
@@ -406,7 +417,7 @@ describe('--model resolves against the live `agy models` list', () => {
 
   test('an ambiguous or unknown name dies with the list, before running agy', () => {
     const sb = sandbox('model-unknown');
-    for (const name of ['gemini', 'argon', 'gemini-9-flash-low']) {
+    for (const name of ['gemini', 'xenon', 'gemini-9-flash-low']) {
       const r = run(sb, ['ask', '--model', name, '--prompt', 'q']);
       assert.notEqual(r.code, 0);
       assert.match(r.stderr, /gemini-3\.8-flash-low\tGemini 3\.8 Flash \(Low\)/);
@@ -416,8 +427,8 @@ describe('--model resolves against the live `agy models` list', () => {
 
   test('a full id passes through when the list is unavailable', () => {
     const sb = sandbox('model-offline');
-    const r = run(sb, ['ask', '--model', 'gemini-4-argon-low', '--prompt', 'q'], { FAKE_AGY_MODELS_ERROR: 'offline' });
+    const r = run(sb, ['ask', '--model', 'gemini-4-neon-low', '--prompt', 'q'], { FAKE_AGY_MODELS_ERROR: 'offline' });
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(modelOf(sb), 'gemini-4-argon-low');
+    assert.equal(modelOf(sb), 'gemini-4-neon-low');
   });
 });

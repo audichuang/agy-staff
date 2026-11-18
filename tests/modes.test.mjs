@@ -212,16 +212,23 @@ describe('permission profile wiring reaches the agy argv', () => {
 });
 
 describe('tiered git guards: implement', () => {
-  test('implement defaults to high effort Hydrogen', async () => {
+  test('implement defaults to high effort Neon', async () => {
     const sb = sandbox('impl-default-model');
     const started = run(sb, ['implement', '--prompt', 'a task']);
     assert.equal(started.code, 0, started.stderr);
-    assert.match(started.stdout, /model: gemini-4-hydrogen-high/);
+    assert.match(started.stdout, /model: gemini-4-neon-high/);
 
     const id = jobIdOf(started.stdout);
     assert.equal(await waitForJob(sb, id), 'done');
     const [argv] = await waitForCalls(sb, 1);
-    assert.equal(argv[argv.indexOf('--model') + 1], 'gemini-4-hydrogen-high');
+    assert.equal(argv[argv.indexOf('--model') + 1], 'gemini-4-neon-high');
+  });
+
+  test('bare --effort keeps the mode family: implement stays on Neon', () => {
+    const sb = sandbox('impl-effort');
+    const started = run(sb, ['implement', '--effort', 'xhigh', '--prompt', 'a task']);
+    assert.equal(started.code, 0, started.stderr);
+    assert.match(started.stdout, /model: gemini-4-neon-xhigh/);
   });
 
   test('implement on a dirty tree injects workspace context instead of refusing', async () => {

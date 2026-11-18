@@ -103,12 +103,12 @@ describe('unsupported model error handling without silent fallback', () => {
     assert.ok(!calls.some((args) => args.includes('gemini-3.7-flash-low')), 'must not silently fall back to 3.7');
   });
 
-  test('background job (implement) fails clearly on catalog without Hydrogen, recommending same-effort 3.7-flash-high', async () => {
+  test('background job (implement) fails clearly on catalog without Neon or Hydrogen, recommending same-effort 3.7-flash-high', async () => {
     const sb = sandbox('unsupported-implement');
     const started = run(sb, ['implement', '--prompt', 'a task'], {
       FAKE_AGY_STATUS: 'ERROR',
       FAKE_AGY_RESPONSE: '',
-      FAKE_AGY_ERROR: 'model gemini-4-hydrogen-high is not recognized as a known model',
+      FAKE_AGY_ERROR: 'model gemini-4-neon-high is not recognized as a known model',
       FAKE_AGY_MODELS_OUTPUT: CATALOG_WITHOUT_38,
     });
     assert.equal(started.code, 0, started.stderr);
@@ -116,7 +116,7 @@ describe('unsupported model error handling without silent fallback', () => {
     assert.equal(await waitForJob(sb, id), 'error');
 
     const res = run(sb, ['result', id]);
-    assert.match(res.stdout, /requested model "gemini-4-hydrogen-high"/);
+    assert.match(res.stdout, /requested model "gemini-4-neon-high"/);
     assert.match(res.stdout, /Available models \(from `agy models`\):/);
     assert.match(res.stdout, /gemini-3\.7-flash-high/);
     assert.match(res.stdout, /Best same-effort compatible recommendation: --model gemini-3\.7-flash-high/);

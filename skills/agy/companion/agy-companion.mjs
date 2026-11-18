@@ -35,7 +35,8 @@
  *   --continue            reuse the last conversation id for this mode
  *   --model <id>          model id, family, or unique part of one (see `models`);
  *                         checked against `agy models`, overrides --effort
- *   --effort <tier>       low|medium|high|xhigh → gemini-4-hydrogen-<effort>
+ *   --effort <tier>       low|medium|high|xhigh on the mode's default family
+ *                         (neon for research/review/implement, else hydrogen)
  *   --restricted          hardening opt-in: keep agy's permission enforcement
  *                         on (wants setup's evidence-gathering allowlist)
  *   --unrestricted        pass --dangerously-skip-permissions (already the
@@ -115,10 +116,12 @@ const MODES = ['staffer', 'research', 'review', 'implement', 'ask'];
 
 const DEFAULTS = {
   model: {
+    // Google's split (2026-11-18): Neon for deep reasoning in engineering and
+    // research, Hydrogen for fast everyday work. Both draw on one Gemini pool.
     staffer: 'gemini-4-hydrogen-medium',
-    research: 'gemini-4-hydrogen-high',
-    review: 'gemini-4-hydrogen-medium',
-    implement: 'gemini-4-hydrogen-high',
+    research: 'gemini-4-neon-high',
+    review: 'gemini-4-neon-high',
+    implement: 'gemini-4-neon-high',
     ask: 'gemini-4-hydrogen-low',
   },
   // Every tool-using mode is unrestricted by default: headless agy denies
@@ -151,13 +154,16 @@ function formatModels(models) {
 }
 
 /** Resolve a user-supplied --model (full id, family, or part of a family name
- *  such as "argon"; a part matching several versions of one family, such as
+ *  such as "neon"; a part matching several versions of one family, such as
  *  "flash", takes the newest) to a Gemini id agy lists, or die pre-flight with
  *  the list. Never lets a bare family or a Claude/GPT id reach agy. */
 function normalizeModel(raw, effort) {
   const gemini = (id) => {
     if (/^(claude|gpt)/i.test(id)) {
       die(`--model ${id}: Claude and GPT are agy-pick's fallback reserve, used only once Gemini is out. Ask for a Gemini model.`);
+    }
+    if (/argon|orchestrator-g1-pro/i.test(id)) {
+      die(`--model ${id}: Argon is no longer in Google's Gemini 4 lineup and is not offered here. Use neon (deep reasoning) or hydrogen (fast).`);
     }
     return id;
   };
@@ -192,7 +198,7 @@ function normalizeModel(raw, effort) {
   }
   die(
     `${matches.length ? `"${raw}" matches several models (${matches.join(', ')})` : `unknown model "${raw}"`}. ` +
-      `Pass a Gemini id below, a family with --effort, or part of a family name (e.g. "hydrogen", "argon"):\n` +
+      `Pass a Gemini id below, a family with --effort, or part of a family name (e.g. "hydrogen", "neon"):\n` +
       formatModels(discovery.models)
   );
 }
@@ -970,7 +976,7 @@ function resolveRun(mode, opts, priorJob = null) {
   if (opts.model) {
     model = normalizeModel(opts.model, opts.effort);
   } else if (opts.effort) {
-    model = `gemini-4-hydrogen-${opts.effort}`;
+    model = DEFAULTS.model[mode].replace(EFFORT_SUFFIX, `-${opts.effort}`);
   } else {
     model = DEFAULTS.model[mode];
   }
