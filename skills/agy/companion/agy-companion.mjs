@@ -163,7 +163,7 @@ function normalizeModel(raw, effort) {
       die(`--model ${id}: Claude and GPT are agy-pick's fallback reserve, used only once Gemini is out. Ask for a Gemini model.`);
     }
     if (/argon|orchestrator-g1-pro/i.test(id)) {
-      die(`--model ${id}: Argon is no longer in Google's Gemini 4 lineup and is not offered here. Use neon (deep reasoning) or hydrogen (fast).`);
+      die(`--model ${id}: Argon is not offered by this skill since 2026-11-19 (Neon replaces it). Use neon (deep reasoning) or hydrogen (fast).`);
     }
     return id;
   };
@@ -738,7 +738,7 @@ function handleUnsupportedModel({ requestedModel, errText, originalError, convNo
     msg +=
       `Model discovery via \`agy models\` failed (${discovery.error}).\n` +
       `Please run \`agy models\` to check available models.\n` +
-      `Updating agy is preferred to use the latest default (gemini-4-hydrogen).`;
+      `Updating agy is preferred to use the latest defaults (gemini-4-neon, gemini-4-hydrogen).`;
     die(msg + (convNote || ''));
   }
 
@@ -753,7 +753,7 @@ function handleUnsupportedModel({ requestedModel, errText, originalError, convNo
   if (best) {
     msg += `Best same-effort compatible recommendation: --model ${best}\n`;
   }
-  msg += `Updating agy is preferred to use the latest default (gemini-4-hydrogen).`;
+  msg += `Updating agy is preferred to use the latest defaults (gemini-4-neon, gemini-4-hydrogen).`;
   die(msg + (convNote || ''));
 }
 

@@ -397,13 +397,13 @@ describe('--model resolves against the live `agy models` list', () => {
     assert.equal(agyCalls(sb).length, 0);
   });
 
-  test('Argon is refused: it left the Gemini 4 lineup', () => {
+  test('Argon is refused: Neon replaces it here', () => {
     const sb = sandbox('model-argon');
     const list = 'gemini-4-neon-high\tNeon\ngemini-4-argon-high\tArgon\ngemini-pro-orchestrator-g1-pro\tOrchestrator (Argon)';
     for (const name of ['argon', 'gemini-4-argon-high', 'gemini-pro-orchestrator-g1-pro']) {
       const r = run(sb, ['ask', '--model', name, '--prompt', 'q'], { FAKE_AGY_MODELS_OUTPUT: list });
       assert.notEqual(r.code, 0, name);
-      assert.match(r.stderr, /no longer in Google's Gemini 4 lineup/);
+      assert.match(r.stderr, /not offered by this skill/);
     }
     assert.equal(agyCalls(sb).length, 0);
   });

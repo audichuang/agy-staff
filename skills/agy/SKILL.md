@@ -29,7 +29,7 @@ Coordinating several assignments or a long task: read `references/lead.md`.
 
 ## Pick a model
 
-Modes follow Google's split (2026-11-18): Neon, the strongest model on Pro, for deep reasoning (research, review, implement); Hydrogen, faster and half the price, for everyday work (staffer, ask). Both draw on the same Gemini 5h + weekly windows, rotated across accounts, so Neon spends them faster. Switch with `--model` when the task calls for it; `models` shows the ids on offer and each account's quota left. Argon is gone from Google's lineup and refused here.
+Modes follow Google's split (2026-11-18): Neon, the strongest model on Pro, for deep reasoning (research, review, implement); Hydrogen, faster and half the price, for everyday work (staffer, ask). Both draw on the same Gemini 5h + weekly windows, rotated across accounts, so Neon spends them faster. Switch with `--model` when the task calls for it; `models` shows the ids on offer and each account's quota left. Argon is not offered here: Neon replaces it (2026-11-19), and `--model` refuses Argon ids.
 
 | `--model` | Best at | Choose it when |
 | --- | --- | --- |

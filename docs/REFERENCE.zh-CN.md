@@ -114,7 +114,7 @@ agy 还有与 `--project` 体系关联的项目级权限规则，可以将权限
 | --- | --- |
 | `--conversation <id>` | 继续指定的 agy 会话 |
 | `--continue` | 继续状态记录中该模式最近一次会话 |
-| `--model <id>` | 指定模型，会对照 `agy models` 的实时列表检查（`models` 子命令会列出）。模型 ID 带有推理强度后缀，如 `gemini-4-hydrogen-low`；也可传模型系列名或其中一段（`neon`、`hydrogen`，同一系列有多个版本时取最新）并配合 `--effort`。未知或有歧义的名称会在启动前报错并列出可用 ID；Claude 与 GPT 是 agy-pick 的备用额度，会被拒绝；Argon 已不在 Google 的 Gemini 4 阵容中，也会被拒绝 |
+| `--model <id>` | 指定模型，会对照 `agy models` 的实时列表检查（`models` 子命令会列出）。模型 ID 带有推理强度后缀，如 `gemini-4-hydrogen-low`；也可传模型系列名或其中一段（`neon`、`hydrogen`，同一系列有多个版本时取最新）并配合 `--effort`。未知或有歧义的名称会在启动前报错并列出可用 ID；Claude 与 GPT 是 agy-pick 的备用额度，会被拒绝；Argon 的 id 也会被拒绝（自 0.7.9 起由 Neon 取代） |
 | `--effort low\|medium\|high\|xhigh` | 指定推理强度，沿用该模式的默认模型：research/review/implement 为 `gemini-4-neon-<effort>`，staffer/ask 为 `gemini-4-hydrogen-<effort>` |
 | `--restricted` / `--unrestricted` | 覆盖本次运行的权限配置；`ask` 会忽略这两个参数 |
 | `--restrict <modes\|none>` | 用于 `setup`，设置或清除[仓库默认权限](#仓库级-policysetup---restrict) |
