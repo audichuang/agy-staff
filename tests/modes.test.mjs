@@ -38,6 +38,7 @@ describe('execution style is fixed per mode', () => {
     assert.match(r.stdout, /fake answer/);
     assert.doesNotMatch(r.stdout, /Started background/);
     assert.equal(agyCalls(sb).length, 1);
+    assert.doesNotMatch(promptOf(agyCalls(sb)[0]), /## Finding evidence/);
   });
 
   test('ask keeps the answer on stdout and the telemetry on stderr', () => {
@@ -100,6 +101,7 @@ describe('permission profile wiring reaches the agy argv', () => {
       await waitForJob(sb, jobIdOf(r.stdout));
       const [argv] = await waitForCalls(sb, 1);
       assert.ok(argv.includes(SKIP), `expected ${SKIP} in ${JSON.stringify(argv)}`);
+      assert.match(promptOf(argv), /## Finding evidence\n\n- .*`rg -l` or `rg -n`/);
     });
 
     test(`${mode} --restricted opts out → no --dangerously-skip-permissions`, async () => {

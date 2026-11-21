@@ -1080,7 +1080,7 @@ function buildPrompt(mode, opts) {
   if (mode === 'ask') return fillTemplate('ask', { TASK: task });
   return fillTemplate(mode, {
     TASK: task,
-    CONTEXT: context,
+    CONTEXT: `${context}\n\n${fillTemplate('evidence', {}).trimEnd()}`,
     WORKSPACE: mode === 'implement' ? dirtyWorkspacePrompt() : '',
   });
 }
