@@ -12,7 +12,7 @@ node "<skill-dir>/companion/agy-companion.mjs" <command> [args]
 
 Default flow: prepare the prompt → dispatch → wait for the final result → validate as needed. While a job is running, do not proactively call `observe`/`status`, read logs or inspect intermediate artifacts. Do not query progress for routine updates or create sleep/observe loops. Observe only when the user explicitly asks for progress; diagnose after receiving a failure or a result requiring intervention.
 
-1. Keep the returned job id. Start `wait <id> --timeout 10m` in the background, using the same unsandboxed context as launch. Use a separate wait for each job; never wait for several jobs serially in one shell.
+1. Keep the returned job id. Start the printed `wait <id> --timeout 9m` command in the background, using the same unsandboxed context as launch. Use a separate wait for each job; never wait for several jobs serially in one shell.
 2. For **wait**, branch on the exit code:
 
 | Code | Meaning | Next action |
@@ -32,9 +32,9 @@ Collecting a pending wait command is necessary result collection, not active obs
 
 A wait expires without stopping the worker. Cancel only when the task calls for stopping; silence or soft expiry alone is not a reason. For a user-requested progress answer or diagnosis after failure/required intervention, read a bounded `details` excerpt only if the returned information leaves a specific question unanswered. Never inspect logs or intermediate artifacts for routine reassurance.
 
-When leading a multi-assignment task (`lead.md`), assess and synthesize the results yourself. For a single delegation, deliver short results verbatim; summarize long results with their file path. Keep quoted verdicts, numbers and errors exact. For implement, also report the workspace state and inspect changes with `git diff`; verify any Git delivery that the user explicitly requested.
+When leading a multi-assignment task (`lead.md`), assess and synthesize the results yourself. For a single delegation, relay the result as SKILL.md's Rules require: completely, every finding with its file:line. Keep quoted verdicts, numbers and errors exact. For implement, also report the workspace state and inspect changes with `git diff`; verify any Git delivery that the user explicitly requested.
 
-Follow through to a result unless the user asked only to launch. If the host cannot deliver background command results, use the longest practical wait within its tool-call limit (bare `wait` defaults to 100s). The host controls when the model receives a tool result; this plugin cannot schedule a future model invocation by itself.
+Follow through to a result unless the user asked only to launch. If the host cannot deliver background command results, use the longest practical wait within its tool-call limit (bare `wait` defaults to 100s). The host controls when the model receives a tool result; this skill cannot schedule a future model invocation by itself.
 
 ## Other commands
 
@@ -49,7 +49,7 @@ Follow through to a result unless the user asked only to launch. If the host can
 | `restart <id>` | Start the original task/configuration again without its conversation; create a linked new job. |
 | `setup [--apply] [--restrict <modes\|none>]` | Optional permission setup; read `setup.md` first. |
 
-Wait/observe default to the latest job. Observe uses the same status exit codes, but exit 0 means **finished, not full result delivered**. Collect the existing wait session, or use `result <id>` if none is pending; do not start another wait or expect observe to consume the pending session. Failed/canceled/attention observations provide bounded recovery metadata; wait/result deliver the full report. A continued ask remains synchronous. `result` also returns exit 5 for attention (its legacy exit behavior for other terminal states is unchanged).
+Wait/observe default to the latest job. Observe uses the same status exit codes, but exit 0 means **finished, not full result delivered**. Collect the existing wait session, or use `result <id>` if none is pending; do not start another wait or expect observe to consume the pending session. Failed/canceled/attention observations provide bounded recovery metadata; wait/result deliver the full report. A continued ask remains synchronous. `result` exits 5 for attention and 0 for every other finished state, error and canceled included, so read its output, not its exit code.
 
 Continuation and restart may be invoked from the root or any subdirectory of the same worktree; execution returns to the original cwd. Generic `continue` fails for an unrecorded conversation ID. It does not search other worktrees or infer configuration from an unrelated conversation. For continuation, explicit model/profile flags override the inherited values.
 

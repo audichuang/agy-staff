@@ -65,9 +65,9 @@ codex plugin add agy@agy-staff
 也可以把下面这段话交给你的 coding agent，让它按照仓库里的说明完成安装和验证：
 
 ```
-Read the raw text of https://raw.githubusercontent.com/keli-wen/agy-staff/master/docs/INSTALL_FOR_AGENTS.md
+Read the raw text of https://raw.githubusercontent.com/audichuang/agy-staff/master/docs/INSTALL_FOR_AGENTS.md
 (curl it — do not work from a summary), or the same file in your local checkout of agy-staff, and follow it to
-install and verify the agy-staff plugin for the harness you are running in. Respond in the user's language.
+install and verify the agy skill. Respond in the user's language.
 ```
 
 ## 使用

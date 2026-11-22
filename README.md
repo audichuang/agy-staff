@@ -77,8 +77,8 @@ Restart Claude Code or Codex afterwards. First run: `/agy:ask reply with OK` (Cl
 Paste this into any coding agent:
 
 ```
-Read the raw text of https://raw.githubusercontent.com/keli-wen/agy-staff/master/docs/INSTALL_FOR_AGENTS.md (curl it — do not
-work from a summary) and follow it to install and verify the agy-staff plugin for the harness you are running in.
+Read the raw text of https://raw.githubusercontent.com/audichuang/agy-staff/master/docs/INSTALL_FOR_AGENTS.md (curl it — do not
+work from a summary) and follow it to install and verify the agy skill.
 Respond in the user's language.
 ```
 
