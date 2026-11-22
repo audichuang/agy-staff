@@ -1,351 +1,236 @@
-# agy-staff 使用参考
+# agy-staff — 完整参考
 
-这份手册介绍 agy-staff 的参数、权限设置和后台任务机制。第一次使用时，可以先阅读 [README](../README.zh-CN.md)，完成安装并运行一个简单任务。英文版见 [REFERENCE.md](REFERENCE.md)。
+返回 [README](../README.zh-CN.md)。英文版见 [English reference](REFERENCE.md)。
 
 ## 模式与默认值
 
-插件提供五种角色（persona），每种角色对应一个技能。你选择角色并描述任务，主 agent 就会按照技能中的说明调用 companion CLI。companion 是插件自带的 Node.js 程序，负责启动 agy、保存任务状态和收取结果。
+| 模式 | 用途 | 默认模型 | 权限配置 | 执行方式 |
+|---|---|---|---|---|
+| `ask` | 不使用工具的低成本一次性问答（约 3 秒）；也可作为安装后的冒烟测试 | `gemini-4-hydrogen-low` | restricted（仅靠提示词） | 同步——答案在同一次调用中返回 |
+| `staffer` | 通用委派，没有专门的角色或固定的输出格式；仍遵守共享的操作约定 | `gemini-4-hydrogen-medium` | unrestricted | 后台任务——返回任务 ID |
+| `research` | 深度调研，引用来源，并明确标出尚未验证的结论 | `gemini-4-neon-high` | unrestricted | 后台任务——返回任务 ID |
+| `review` | 第二意见的验证者，按对象分成两种方式：代码审查（按严重程度列出问题，附 `file:line` 位置）和通用审查（对方案、设计或决策做多角度的挑战） | `gemini-4-neon-high` | unrestricted | 后台任务——返回任务 ID |
+| `implement` | 范围明确的编码任务；agy 修改工作区，也可以完成明确要求的 Git 交付 | `gemini-4-neon-high` | unrestricted | 后台任务——返回任务 ID |
 
-| 角色技能 | companion 命令 | 用途 | 默认模型 | 执行方式 |
-| --- | --- | --- | --- | --- |
-| `ask` | `ask` | 不使用工具的单轮问答，也可用于安装后的简单验证 | `gemini-4-hydrogen-low` | 同步返回答案 |
-| `staffer` | `staffer` | 通用任务，由任务描述决定具体工作 | `gemini-4-hydrogen-medium` | 返回后台任务 ID |
-| `researcher` | `research` | 调研并引用来源，注明尚未验证的结论 | `gemini-4-neon-high` | 返回后台任务 ID |
-| `reviewer` | `review` | 审查代码、方案或决策 | `gemini-4-neon-high` | 返回后台任务 ID |
-| `implementer` | `implement` | 完成范围明确的编码任务 | `gemini-4-neon-high` | 返回后台任务 ID |
+`skills/agy/references/lead.md` 为当前 agent 提供任务编排指导，复用现有的 companion 模式，没有自己的模式。
 
-`lead` 为当前主 agent 提供任务编排指导，复用现有 companion 模式，没有自己的运行模式；Claude Code 使用 `/agy:lead`，Codex 使用 `$agy:lead`，Pi 使用 `/skill:agy-lead`。
+执行方式由模式决定，不能通过参数覆盖。`continue` 沿用所解析模式的执行方式（继续一个 `ask` 仍是同步；继续其他模式会返回任务 ID）。
 
-`staffer` 不预设专业分工或固定的报告格式，但仍遵守共享的操作约定。`reviewer` 会根据对象选择审查方式：代码问题按严重程度列出，并附上 `file:line` 位置；方案和决策审查则检查假设、风险和取舍。`implementer` 可以直接修改工作区，也可以完成任务明确要求的提交、推送或 PR 操作。
-
-执行方式由模式决定，不能通过参数切换。继续一个 `ask` 会话时，答案仍在同一次调用中返回；继续其他模式时，会创建新的后台任务。
-
-Claude Code 使用 `/agy:<persona>`，Codex 使用 `$agy:<persona>`，Pi 使用 `/skill:agy-<persona>`。三者共用 `companion/` 中的运行逻辑和 `templates/` 中的提示词模板。companion 只依赖 Node.js 标准库。
-
-Pi 加载的入口位于 `pi-skills/`，由 `npm run generate:pi` 根据 `skills/` 自动生成。生成过程会添加 `agy-` 前缀、调整技能之间的相对路径，并附上 `templates/harness-compatibility.md`。这份兼容说明要求主 agent 在工具不可用时寻找等价方法，保留原有要求；无法做到时再向用户求助。
-
-任务管理由 `jobs` 技能和 companion CLI 共同完成，在 Pi 中对应 `agy-jobs`。通常直接对主 agent 说“agy 的任务进展如何”或“继续刚才的任务”即可，不需要手动记住管理命令。
+Claude Code 和 Codex 加载同一个技能（`skills/agy/`，安装到 `~/.aghub/agy`）：`SKILL.md` 把请求路由到某个模式，`references/` 存放按需读取的细节（审查的组装、任务、主导、setup、疑难排查），`templates/` 存放发给 agy 的提示词，一个 companion 脚本（`companion/agy-companion.mjs`，只依赖 Node 标准库）负责运行一切。在 Claude Code 中用 `/agy <mode> …` 调用，在 Codex 中用 `$agy <mode> …`，也可以直接用自然语言提问（“agy 的任务完成了吗？”）。
 
 <a id="双权限档模型"></a>
 
-## 权限设置
+## 双权限配置模型
 
-`staffer`、`research`、`review` 和 `implement` 默认使用 `unrestricted`，因此安装后就能调用工具，无需先配置命令允许列表或运行 `setup`。如果希望保留 agy 自身的权限检查，可以在单次调用时传入 `--restricted`。
+每个模式都恰好运行在两种配置之一下。**所有使用工具的模式默认都是 `unrestricted`**，所以技能装好就能用，不需要允许列表，也不需要 setup；`--restricted` 是需要主动选择的加固参数。`--restricted`／`--unrestricted` 可按次覆盖（`ask` 不使用工具，强制为 restricted——它忽略这两个参数，传入 `--unrestricted` 时会打印一条说明，然后仍按 restricted 继续）。
 
-`ask` 不使用工具，始终按 `restricted` 运行。它会忽略这两个权限参数；传入 `--unrestricted` 时，companion 会说明这一点，然后继续执行问答。
+一次运行的权限配置按以下顺序确定：命令行参数 > 已记录的会话配置（继续会话时）> 仓库策略（[`setup --restrict`](#仓库级-policysetup---restrict)）> 内置默认值。
 
-| 配置 | agy 如何执行 | 使用时需要了解的限制 |
-| --- | --- | --- |
-| `unrestricted` | 传入 `--dangerously-skip-permissions`，允许读取文件、运行命令和修改工作区 | 任务边界依靠提示词约定和工作区检查，不能替代权限隔离 |
-| `restricted` | 保留 agy 的权限检查，未获准的工具调用会被拒绝 | 需要配置允许执行的命令；部分工具在非交互模式下仍可能无法使用 |
+| | **unrestricted**（默认：staffer、research、review、implement） | **restricted**（可选加固；ask 强制使用） |
+|---|---|---|
+| agy 调用方式 | `--dangerously-skip-permissions` | 不跳过权限——失败即关闭，未列出的工具调用一律自动拒绝 |
+| agy 能做什么 | 任何事，包括修改文件和运行命令 | 读取工作区文件，加上 `git gh cat head ls grep find rg wc`，并带有五个针对性的 git/gh deny 前缀（AGY 权限规则） |
+| 安全网 | 提示词层面的护栏（对不可逆或高成本的操作默认拒绝）+ 下面的分级 git 保护 | agy 仍处于它自己的权限检查之内 |
+| 典型用途 | 日常路径：问答、调研、审查、编码任务 | 加固运行：不可信输入，或不能接受跳过 agy 权限提示的机器 |
 
-`--restricted` 和 `--unrestricted` 不能同时传入。选择权限配置时，companion 先看显式参数；继续已有会话且没有显式覆盖时，继承该会话的权限配置。新任务则采用[仓库默认策略](#仓库级-policysetup---restrict)，没有策略时使用内置默认值。
-
-`setup` 提供的命令允许列表包含 `git gh cat head ls grep find rg wc`，主要用于读取和核对材料。如果没有相应规则，受限任务的工具调用可能全部被拒绝，最终只返回空回答。此外，部分 agy 原生工具在非交互模式下不遵循允许规则，因此即使配置了列表，受限任务也可能无法取得完整材料。
+`--restricted` 和 `--unrestricted` 互斥；同时传入会报错。加固之前要知道两点：`--restricted` 只有在安装了 setup 的允许列表之后才有用（否则 agy 会拒绝它自己的取证操作，运行结果为空）；而且部分原生工具在非交互模式下完全忽略允许规则——受限运行返回的内容可能比不受限的更少。
 
 <a id="分级-git-保护"></a>
 
-### 如何处理工作区改动
+### 分级 git 保护
 
-下面的工作区检查用于 `unrestricted` 任务，不同模式的处理方式有所区别。
+这些保护**仅适用于 unrestricted 运行**，各模式的处理不同：
 
-`implement` 可以在已有未提交改动的仓库中启动。companion 会把一份简短的运行前状态摘要加入提示词，让 agy 知道哪些路径已经有改动，并要求它将这些内容视为用户已有的工作。摘要有长度上限；如果无法判断某处改动的归属，agy 应自行运行 `git status --porcelain` 并查看差异。任务结束后，companion 会报告工作区状态。在 Git 仓库之外执行时，它会先提醒你无法通过 Git 审查或回滚修改，然后继续运行。
+| 模式 | 在 git 仓库内 | 不是 git 仓库 |
+|---|---|---|
+| `implement` | 允许工作区有未提交改动。如果仓库已有改动，companion 会在 agy 的提示词中加入一份简短的运行前状态摘要，让它知道哪些路径已经被改过，并要求把它们视为用户已有的工作。摘要有长度上限；如果无法判断归属，agy 应自行运行 `git status --porcelain` 并查看差异。任务结束后，companion 会报告工作区是干净、有改动，还是仍有未提交改动 | 提醒你无法通过 git 审查或回滚 agy 的修改，然后继续运行 |
+| `research`、`review` | 从不拦截，也不检查工作区是否干净。worker 在运行前记录 `git status --porcelain`，运行后再比较；如果 agy 引入了改动，结果中会附上列出差异的警告和回滚提示 | 没有可比较的状态——静默 |
+| `staffer` | 前后比较与报告方式同 research/review，但措辞中性：通用任务本来就可能修改文件，所以差异只是提供给调用方的信息（“确认任务确实要求了这些修改”），而不是指责 | 没有可比较的状态——静默 |
 
-`research` 和 `review` 不要求工作区没有改动。worker 会比较运行前后的 `git status --porcelain`；如果发现新变化，结果中会列出差异并提醒检查。模板要求这两种模式保留被跟踪文件的内容，因此出现工作区变化时，应确认原因。在 Git 仓库之外没有可供比较的状态，也就不会输出这项报告。
-
-`staffer` 使用相同的前后比较方式。不过，通用任务本来就可能需要改文件，因此它会中性地报告变化，提醒调用方确认这些修改属于任务范围。
+对 `research`／`review` 来说，静默是正常情况：只有 agy 动了工作区时才会出现差异警告，而模板明确要求它不要这么做。
 
 <a id="prompt-层护栏默认拒绝按需开放"></a>
 
-### 提示词中的操作约定
+### 提示词层面的护栏：默认拒绝，由提示词开放
 
-四种工具模式都通过模板限制未经授权的操作。默认情况下，agy 不应提交或推送代码、修改 Git 历史、写入 PR、删除工作区之外的文件、发起会改变外部状态的网络请求，或运行消耗付费 API 额度的命令。临时脚本、日志和下载文件应放在临时目录中，工作区中的修改应保留通过 Git 撤销的可能。
+`staffer`、`research`、`review` 和 `implement` 的模板**默认**拒绝不可逆或高成本的副作用：
 
-如果任务明确要求其中某项操作，例如“创建一个草稿 PR”或“运行会调用真实 API 的集成测试”，相应授权应原样传给 agy。它只能执行授权范围内的操作，并在结果中说明实际做了什么。
+- 不提交、不推送、不写入 PR、不改写历史，除非任务明确要求这种具体的 Git 交付；
+- 不删除工作区之外的文件；
+- 不发起有副作用的网络请求；
+- 不运行会消耗付费 API 额度或 token 的命令（例如会向真实 API 计费的 e2e 测试）。
 
-`review` 还要求保留被跟踪文件，不提交或推送代码。为了验证问题，它可以读取材料、在临时目录中编写脚本，或运行已有测试。提示词约定描述了 agy 应遵守的行为，并不构成操作系统层面的安全限制。
+临时脚本放在临时目录中，运行在工作区内做的所有修改都应保留通过 git 撤销的可能。
+
+**默认是关上的，不是锁死的。** 如果你的请求明确授权了其中某项操作（“提交这个改动”、“创建一个草稿 PR”、“运行 e2e 测试”、“调用 staging API”），agy 只会执行被授权的操作，并报告实际运行了什么——所以委派时要把这类授权原样传过去。尤其是 `review`，它可以运行只读命令、临时脚本和测试来验证某个问题；它不能做的是修改被跟踪的文件、提交或推送。
 
 ### 审查不可信内容
 
-在 `unrestricted` 下，agy 可以执行命令。不可信的 PR、依赖代码或 issue 正文可能包含提示词注入，诱导它执行任务之外的操作。审查这些内容时，需要考虑它能接触到的文件、凭据和外部服务。
+在 `unrestricted` 下，提示词注入就是代码执行。如果你让 `review` 或 `research` 去处理不可信的人写的内容——陌生人的 PR、引入的第三方依赖、写满指令的 issue 正文——内容里的文字可以让 agy 运行任意命令，而不受限的 agy 会照做。
 
-可以选择 `--restricted`，让 agy 拒绝未获准的工具调用。不过，命令允许列表按前缀匹配，无法保证只读访问，部分工具也可能因此无法运行。更明确的隔离方式是在临时检出目录、容器或虚拟机中审查，并避免向该环境提供无关凭据。
+有两种缓解办法，都不是默认值：
 
-插件默认面向你自己的机器和代码。处理不可信输入时，应根据任务选择权限配置和隔离环境。
+- **`--restricted`**——agy 自己的权限检查生效，未列出的工具会被自动拒绝。限制同上：它需要 setup 的允许列表才有用，允许列表按前缀匹配而不是只读，而忽略允许规则的原生工具可能因失败即关闭而让审查内容变少。它缩小了影响范围，但不是沙箱。
+- **隔离的检出目录**——在一次性的克隆、容器或虚拟机中审查，里面不放任何值得被偷的凭据。
 
-### 可选加固 setup
+默认值针对的是最常见的情况：你自己的代码、你自己的机器。处理不可信输入时，就应该选用这两种办法之一。
 
-如果需要配置 `restricted` 模式，可以让主 agent 执行 `setup`，例如直接说“帮我配置 agy 的受限运行权限”。这是 companion 的管理命令，由 `jobs` 技能处理。
+<a id="可选加固-setup"></a>
 
-`setup` 会检查 agy 是否可用，并展示计划写入 `~/.gemini/antigravity-cli/settings.json` 的命令 allow/deny 规则。默认只预览，不修改文件。经你明确确认后，它才会备份原文件并追加配置。
+### 可选加固（setup）
 
-setup 保留宽泛的 `command(git)` / `command(gh)`，只为五个命令前缀添加 deny：`git push`、`git reset --hard`、`git clean`、`gh pr merge` 和 `gh release delete`。[AGY 按 deny > ask > allow 的顺序处理规则](https://www.antigravity.google/docs/cli/permissions/)，companion 只安装配置，不自己解析命令，也不预测每个任务会用哪些子命令。已有 allow/deny/ask 规则会保留；对先前收窄过的配置执行 setup，会添加预览中展示的宽泛允许项。这组前缀用于防常见误操作，不能覆盖所有参数排列、别名、脚本或 API，因此不保证只读或拦住所有不可逆影响。任务正文授权不会覆盖 deny；确需执行时，应明确调整设置。
+`setup` 是可选的 companion 管理命令；它的引导流程在 `skills/agy/references/setup.md`。需要时，让你的宿主 agent 配置 agy 的受限模式即可。该命令会检查 `agy` 可执行文件，并预览准备写入 `~/.gemini/antigravity-cli/settings.json` 的**取证类 allow/deny 规则**。只有在明确确认之后，它才会备份文件并追加配置。默认的 unrestricted 任务和不使用工具的 ask 都不依赖 setup。
 
-其次，配置文件是全局的，规则会影响这台机器上的其他 agy 任务。允许列表中没有单独的联网搜索规则；在项目测试过的 agy v1.1.13 中，`search_web` 无需这类规则就能在非交互模式下运行。
+应用之前，要了解这些规则的两个特点：
+
+- **它用一个很小的 deny 列表放行宽泛的命令。** setup 保留 `command(git)` / `command(gh)`，并为 `git push`、`git reset --hard`、`git clean`、`gh pr merge` 和 `gh release delete` 添加 deny 前缀。[AGY 按 deny > ask > allow 的顺序处理规则](https://www.antigravity.google/docs/cli/permissions/)；companion 只安装配置，没有命令解析器，也没有按任务生成的允许列表。已有的 allow/deny/ask 规则会保留。对先前收窄过的配置执行 setup，会添加其预演中展示的宽泛允许项。这些前缀用于防止常见误操作，不能覆盖所有不可逆的操作：其他参数排列、别名、脚本、API 以及其他被允许的命令都没有被全面覆盖。setup 不是只读边界。被 deny 的操作即使任务中要求也仍然被拒绝；确需执行时，请明确调整设置。
+- **它是全局的。** 文件是 `~/.gemini/antigravity-cli/settings.json`，所以这些规则适用于这台机器上的每一次 `agy` 运行，而不仅仅是 agy-staff 的任务。这正是预期的产品路径（“配置一次，到处使用”）。
+
+联网搜索不在允许列表中，也不需要：在测试过的 agy（v1.1.13）上，`search_web` 无需允许规则就能在非交互模式下运行。
 
 <a id="仓库级-policysetup---restrict"></a>
 
-### 按仓库设置默认权限
+### 按仓库设置策略（`setup --restrict`）
 
-如果某个仓库经常需要受限审查，可以为它设置默认策略，省去每次指定参数的步骤：
+如果你希望*在某个特定仓库中*让某些模式每次都以 restricted 运行——比如一个你经常审查陌生人 PR 的仓库——可以一次声明下来，不必每次记得传参数：
 
 ```bash
-setup --restrict review,research   # 这两种模式在本仓库默认使用 restricted
-setup --restrict none              # 清除仓库策略，恢复内置默认值
+setup --restrict review,research   # these modes default to restricted in this repo
+setup --restrict none              # back to the built-in defaults
 ```
 
-策略保存在 `<repo>/.agy-staff/config.json`。新任务采用该策略时，companion 会打印提示。显式的 `--restricted` 或 `--unrestricted` 始终优先；继续已有会话时，没有显式覆盖就继承会话原来的配置。`ask` 不受仓库策略影响。
+策略写入 `<repo>/.agy-staff/config.json`，并自动生效（运行时会打印一条说明，指出权限配置来自项目策略）。有三个特点：
 
-`.agy-staff/` 通常被 Git 忽略，因此这项设置只保存在本地，不会随提交分享给团队。它决定哪些模式默认受限，具体允许执行哪些命令仍由 agy 的权限规则决定。仓库策略本身不会增加安全隔离。
+- **优先级。** 显式的 `--restricted`/`--unrestricted` 参数会覆盖策略。没有显式覆盖的续跑会继承其已记录的权限配置；新任务使用仓库策略或内置默认值。`ask` 不使用工具，始终是 restricted。
+- **范围。** `.agy-staff/` 通常被 git 忽略，所以这项策略是个人的、按机器的偏好——不会通过仓库分享给你的团队。
+- **它不是什么。** 这是为了保持一致、防止失误的运行策略，不是安全边界：它走的是同一套 `--restricted` 机制，限制也相同（需要全局允许列表、按前缀匹配、部分工具在非交互模式下忽略允许规则）。对于真正不可信的输入，请使用隔离的检出目录。
+
+请注意这两个文件是不同的东西：**allow/deny 规则**（受限的 agy 可以执行什么）按 agy 的设计是全局的；**策略**（哪些模式默认受限）按我们的设计是按仓库的。
+
+<a id="进阶项目级权限"></a>
 
 ### 进阶：项目级权限
 
-agy 还有与 `--project` 体系关联的项目级权限规则，可以将权限设置限定到项目。现有资料将这类规则列为较高优先级，但本项目尚未确认设置文件的确切路径，也未验证相应配置流程，因此 `setup` 只操作上面介绍的全局文件。
+如果全局的允许列表对你来说太宽，agy 还支持与其 `--project` 体系关联的项目级权限规则（它将这类规则视为最高优先级）。这样你就可以只在你委派任务的仓库内授予取证规则。
 
-如果全局配置的作用范围不符合你的需要，请先在 agy 交互模式中确认项目级规则的读取位置，再自行配置。默认的 `unrestricted` 任务和不调用工具的 `ask` 都不依赖 `setup`。
+坦率地说明限制：**项目级设置文件的确切路径没有文档说明，也没有对照当前的 agy 版本验证过**，所以 agy-staff 不会写入它，本文档也不去猜测。如果你想要项目级范围，请在 agy 交互模式中确认它从哪里读取项目级规则，再自行配置。在此之前，要么接受全局范围，要么完全跳过 setup——默认的 unrestricted 配置是绕过 agy 的权限系统，而不是依赖它，`ask` 则完全不需要允许列表；跳过 setup 的代价只是无法用 `--restricted` 加固一次运行。
 
 <a id="统一-flags各模式一致"></a>
 
-## 命令行参数
-
-这些参数属于 companion CLI。通过角色技能发起任务时，主 agent 会按需组装命令；只有直接调用 companion 时，才需要自己填写。
+## 参数（各模式一致）
 
 | 参数 | 含义 |
-| --- | --- |
+|---|---|
 | `--conversation <id>` | 继续指定的 agy 会话 |
-| `--continue` | 继续状态记录中该模式最近一次会话 |
-| `--model <id>` | 指定模型，会对照 `agy models` 的实时列表检查（`models` 子命令会列出）。模型 ID 带有推理强度后缀，如 `gemini-4-hydrogen-low`；也可传模型系列名或其中一段（`neon`、`hydrogen`，同一系列有多个版本时取最新）并配合 `--effort`。未知或有歧义的名称会在启动前报错并列出可用 ID；Claude 与 GPT 是 agy-pick 的备用额度，会被拒绝；Argon 的 id 也会被拒绝（自 0.7.9 起由 Neon 取代） |
-| `--effort low\|medium\|high\|xhigh` | 指定推理强度，沿用该模式的默认模型：research/review/implement 为 `gemini-4-neon-<effort>`，staffer/ask 为 `gemini-4-hydrogen-<effort>` |
-| `--restricted` / `--unrestricted` | 覆盖本次运行的权限配置；`ask` 会忽略这两个参数 |
-| `--restrict <modes\|none>` | 用于 `setup`，设置或清除[仓库默认权限](#仓库级-policysetup---restrict) |
-| `--json` | 用于代码审查，按指定结构返回 JSON 格式的问题列表；默认使用 Markdown |
-| `--timeout <dur>` | 后台任务的执行时限，默认 60m，最长 120m；AGY 会收到相同的响应超时参数。同步 `ask` 的默认响应超时为 2m |
-| `--prompt <text>` | 将任务正文作为一个参数传入，通常需要用引号包住 |
-| `--prompt-file <path>` | 从文件读取任务正文，适合较长的描述 |
-| `--stdin` | 从标准输入读取任务正文 |
+| `--continue` | 继续状态记录中该模式最近一次的会话 ID |
+| `--model <id>` | agy 模型，会对照 `agy models` 的实时列表检查（`models` 子命令会列出该列表；当 `AGY_BIN` 是 agy-pick 时，还会列出各账号剩余的额度）。模型 ID 带有推理强度后缀（`gemini-4-hydrogen-low`）；也可传模型系列名或其中一段（`neon`、`flash`；同一系列有多个版本时取最新），并配合 `--effort`（默认 medium，否则取该系列最高的一档）。Claude 和 GPT 的 id 会被拒绝：它们是 agy-pick 的备用额度。Argon 的 id 也会被拒绝：自 0.7.9 起本技能用 Neon 取代它。未知或有歧义的名称会在启动前报错并列出可用 ID；无法获取列表时，完整的 id 会直接放行 |
+| `--effort low\|medium\|high\|xhigh` | 指定该模式默认模型的推理强度：research/review/implement 为 `gemini-4-neon-<effort>`，staffer/ask 为 `gemini-4-hydrogen-<effort>` |
+| `--restricted` / `--unrestricted` | 覆盖权限配置（`ask` 会忽略）。`staffer`/`research`/`review`/`implement` 默认就是 `unrestricted`，所以实际会用到的是 `--restricted` |
+| `--restrict <modes\|none>` | （setup）按仓库设置策略：列出的模式在本仓库默认使用 restricted；`none` 清除策略。见[仓库策略](#仓库级-policysetup---restrict) |
+| `--json` | （review）由模式强制的 JSON 格式问题列表；默认是自由格式的 markdown。面向代码审查方式 |
+| `--timeout <dur>` | 后台 worker 的硬性时限（默认 60m，最长 120m）。AGY 会收到所选的响应超时参数。对同步的 ask：AGY 的响应超时，默认 2m |
+| `--prompt <text>` | 将任务正文作为一个参数传入。要用引号包住；里面的内容都是不透明的 |
+| `--prompt-file <path>` | 从文件读取任务正文——适合较长的提示词，免去 shell 引号的麻烦 |
+| `--stdin` | 从标准输入读取任务正文。每次调用恰好选一个任务来源：`--prompt`、`--prompt-file` 或 `--stdin` |
 
-每次任务只能选择 `--prompt`、`--prompt-file` 和 `--stdin` 中的一个来源。同步或后台执行由模式决定，没有单独的切换参数。
+这张表就是全部的公开接口。没有用于选择执行方式的参数——见上面的模式表。
 
 ## 任务正文
 
-使用角色技能时，在调用名后直接描述任务即可，例如 `/agy:reviewer Review PR #730`。主 agent 会读取技能说明，把任务转换成 companion 命令。直接调用 companion 时，所有运行类命令都必须显式提供任务来源：
+本节讲的是 **companion CLI**，而不是你如何调用技能。你把任务写成普通文本（`/agy review Review PR #730`）；技能读取它，并组装出下面的 `--prompt` 调用。你自己不需要输入 `--prompt`。
 
-```sh
+每个运行类命令（`staffer`、`research`、`review`、`implement`、`ask`、`continue`）都从以下三个来源中**恰好一个**获取任务：
+
+```
 ask       --prompt "what does git diff --check verify?"
 research  --prompt-file /tmp/task.md
 review    --stdin < /tmp/task.md
 ```
 
-同时提供多个来源，或没有提供任务正文，都会报错。这项规则适用于 `staffer`、`research`、`review`、`implement`、`ask` 和 `continue`。
+同时提供两个来源会报错（`task text given more than one way (…) — use exactly one`），一个都不提供也会报错。
 
-companion 按照 shell 交给它的参数边界解析命令，不会再次拆分已经传入的参数。任务中的空白、引号和换行会原样保留；`--check`、`--json`、`--timeout` 等文本即使出现在正文中，也不会变成 companion 的选项。正文中的 `--whatever` 这样的未知选项同样只是文本。从文件或标准输入读取的正文遵循相同规则。
+**不透明性保证。** companion 按 shell 交给它的参数边界解析一次 argv：不会再次拆分任何参数，不解释引号，也不检查任务值中的任何字节。你的任务逐字节到达 agy——包括空白、引号和换行——其中形似选项的文本（`--check`、`--json`、`--timeout`、未知的 `--whatever`）是提示词内容，绝不会成为 companion 的选项。`--prompt-file` 和 `--stdin` 的内容同理。
 
-以 `--` 开头的任务文本需要包含空白。例如 `ask --prompt "--check means what?"` 可以正常执行；单独一个形似选项的值则会被视为缺少参数值。`--` 本身不表示后续参数的分界，会被当作未知选项。
+当值是一句真正的话（即包含空白）时，`--prompt` 接受以 `--` 开头的值：`ask --prompt "--check means what?"` 可以正常执行。形似选项且不含空白的值会被视为忘了传值而被拒绝。`--` 本身没有特殊含义；它会被解析为未知选项。
 
-需要取值的参数不能省略值，也不能传入空字符串。除上述 `--prompt` 情况外，值不能写成另一个选项的样子。例如，`--model ""` 会直接报错。
+需要取值的参数（`--conversation`、`--model`、`--effort`、`--timeout`、`--restrict`、`--prompt`、`--prompt-file`）必须带值。缺少值、空值，以及——除上述 `--prompt` 的句子外——形似选项的值，都会报错，所以 `--model ""` 是错误的。
 
-每个选项及其取值都应分别传给 shell。`review "--restricted Review PR #730"` 把选项和任务混在一个参数里，companion 会拒绝它，并提示改用 `review --restricted --prompt "Review PR #730"`。
+每个选项都是独立的参数。把多个选项塞进一个带引号的字符串（`review "--restricted Review PR #730"`）会报错，并提示正确的写法，而不是去猜选项在哪里结束、任务从哪里开始。
 
 <a id="review-完全基于-prompt"></a>
 
-## 指定审查对象
+## 审查基于提示词
 
-`review` 根据任务描述收集材料。审查 PR 时会使用 `gh pr view` 和 `gh pr diff`；审查分支或工作区时会读取 Git 差异；审查补丁文件时则直接读取文件。请在任务中说明对象，例如：
+`review` 接收一段对象描述，并用它拥有的工具自行收集证据（PR 用 `gh pr view`/`gh pr diff`，引用和工作区用 `git diff`/`git log`，补丁则读取文件）。没有用来传入 diff 的参数；请在提示词中描述审查对象：
 
-```sh
+```
 review --prompt "Review PR #730"
 review --prompt "Review the current working tree"
 review --prompt "Review changes against master"
 review --prompt "Review the patch at /tmp/change.patch"
 ```
 
-没有单独的参数用于传入 diff。审查对象不能为空；如果描述存在歧义，模板要求 agy 说明还缺少什么信息，等待明确后再继续。
+空的任务字符串会报错——`review` 需要一个审查对象。如果对象有歧义，agy 会被要求说明歧义，而不是猜测你的意思。
 
-共享模板规定了审查者的基本要求，包括以实际证据支持结论、保留被跟踪文件，以及遵守操作授权。代码审查和方案审查的具体要求分别来自 `skills/reviewer/references/code-review.md` 与 `general-review.md`，由 `reviewer` 技能按对象组装进任务描述。
+审查模板本身是中性的骨架（审查者的立场、证据纪律、护栏）。所有与具体方式相关的内容——代码审查的取证清单、审查维度、严重程度排序和输出格式，以及方案／决策审查的多角度挑战框架——都放在任务字符串里，由技能根据 `skills/agy/references/{code-review,general-review}.md` 组装。
 
 ## 状态与后台任务
 
-`staffer`、`research`、`review` 和 `implement` 启动后会先返回任务 ID。随后，独立的后台工作进程（worker）运行 AGY，持续读取并保存它的 `stream-json` 输出。即使主 agent 暂时没有查看进度，任务也会继续执行。插件不需要额外的常驻服务或调度器。
+**输出的分工。** stdout 承载结果以及任何关于工作区的保护警告；`[agy-staff]` 开头的运行信息行（模式、权限配置、模型、耗时、token、会话 ID）写入 stderr，后台任务则写入 `jobs/<id>.log`。这些信息是给调用方 agent 的元数据——不属于交付内容，也不会存入 `jobs/<id>.result.md`。
 
-### 等待结果与查看进度
+`staffer`、`research`、`review` 和 `implement` 会很快返回稳定的任务句柄。默认流程：准备提示词、派发、等待最终结果，再按需验收。运行期间，不要主动 observe、读日志或检查中间产物，例行汇报也不例外。只有用户明确询问时才观测进度；失败后或收到需要介入的结果后再诊断。每个独立的 worker 都会持续读取 AGY 的 `stream-json`，即使没有任何观察者。没有额外的守护进程或调度器。
 
-默认流程是：写好 prompt → 派发 → 等待最终结果 → 按需验收。任务运行中不主动 `observe`、查 `status`、读日志或检查中间产物，也不为例行汇报查询进度。只有用户明确询问进度时才观测；收到失败或需要介入的结果后再诊断。
+- `wait [id] [--timeout <dur>]` 等待任务完成或等待到期。完成时返回已有的结果；软到期时直接返回 JSON 观测快照，并让执行继续运行。普通的工具活动不会提前结束等待。直接运行 `wait` 默认等待 100 秒；启动输出会给出明确的 9m 等待。退出码为 2 时，对同一任务再次等待，不要额外检查进度；返回的快照不要求介入。
+- `observe [id]` 始终返回有长度限制的 JSON（最多 8 KiB）：运行中返回当前进展；完成后返回最终状态、结果路径／可用性以及收取说明。error/canceled/crashed 状态还会附上有长度限制的诊断与恢复元数据，绝不包含完整报告。它独立于任何 wait 读取任务状态，不会重置时限，也不会取走其他观察者的记录。
+- `status [id]` 列出任务，或显示状态以及有长度限制的诊断日志尾部。`result [id]` 重新输出已保存的结果。
+- `models` 输出 agy 当前提供的模型 ID（`AGY_BIN models`），当 `AGY_BIN` 是 agy-pick 时，还会根据 `agy-pick --status` 附上各账号剩余的额度（5h／每周）。
+- `cancel <id>` 请求取消，在 worker 保存报告并发布 `canceled` 之后才返回成功。它会保留崩溃的诊断信息，也不会向未经核实的已保存 PID 发送信号。缺少取消通道的旧任务会明确报错。取消报错时需要检查任务和日志；这并不能证明执行已经停止。中断 wait 不会取消 worker。
+- `continue --job <id> --prompt "..."` 沿用原来的模式／模型／权限配置继续已知会话，并创建一个关联的新任务。`continue --conversation <id>` 同样根据该已知会话确定配置，绝不会套用一个无关的最近模式。
+- `restart <id>` 显式地用原任务／原配置重新启动，不复用会话，并关联到原任务。两种恢复操作之前，都应先用 `git status` 和 `git diff` 检查工作区中已有的部分改动。新的运行会重新生成工作区上下文。旧版本保存的任务规格会把历史快照标记出来，再追加当前上下文。
 
-`wait [id] [--timeout <dur>]` 会等到任务完成，或本次等待到期。完成时返回完整结果；等待到期但任务仍在运行时，返回当前的 JSON 快照，并让 worker 继续执行。普通的工具活动不会提前结束等待。直接运行 `wait` 时默认等待 100 秒，技能建议显式使用 `--timeout 10m`。退出码 2 只表示本次等待到期，应继续等待同一任务；附带快照不要求检查进度或介入。
+续跑／重启可以从同一 worktree 内的任意目录发起，并在原来的工作目录中执行。通用 `continue` 遇到未登记的会话 ID 会报错，不会启动 AGY，也不会搜索其他 worktree。如果目标会话对应的任务仍在运行（无论是通用 `continue`，还是某个模式的 `--continue`/`--conversation`），会以退出码 1 拒绝，并返回该任务的 ID 和状态；后续指令不会排队，调用方需要先等待或取消。续跑时，显式指定的模型／权限参数会覆盖已记录的值；否则沿用这些值。新的恢复时限默认为 60m，除非另行指定。
 
-`observe [id]` 用于立即查看任务。运行中返回进展，完成后返回最终状态、结果路径和收取提示；失败、取消或崩溃时，还会附上有长度限制的诊断和恢复信息。它始终返回 JSON，最多 8 KiB，不包含完整报告。
+`wait`／`observe`／带任务 ID 的 `status` 的退出码：**0** 完成，**2** 运行中，**3** 失败／崩溃，**4** 已取消，**5** 需要关注（可续跑的超时），**1** 命令出错。`result` 对 attention 返回 5，对其他所有已结束的状态（包括 error 和 canceled）都返回 0。`observe` 退出码为 0 表示任务已结束，不表示报告已交付。请收取已经在等待的 wait 会话；否则调用 result。wait/result 保持原有的完整结果约定。`done` 状态表示调用和答复交付已结束，不代表任务已验收。有警告的成功调用会在 stderr 中附带 8 KiB 的日志尾部以及完整日志路径；原始状态和退出码记录在该日志中。编排者判断任务是否完成，仅在需要时才进一步检查。中间的工具错误会在内部保留，不会自动升级为成功交付中的警告。运行中的快照包含时间戳、已运行时长、最近五次工具活动的输入／输出节选，以及按步骤合并的最新回答文本。未知状态、不完整的文本和被截断的内容都会标明；一次工具调用完成，并不能证明取得了有用的进展。UTF-8 JSON 的长度预算是：每次活动 1 KiB、文本 2 KiB、总计 8 KiB。仅在回答用户明确提出的进度问题，或失败／需要介入后诊断，且返回的信息不够时，才读取有限的 `details` 节选。
 
-任务完成后，可以收取已经运行的 `wait` 命令，或在没有待收取的等待命令时使用 `result [id]` 读取已保存的结果。`observe` 返回成功只说明本次调用已经结束，完整报告仍需要通过 `wait` 或 `result` 获取。`status [id]` 则用于列出任务，或查看单个任务的状态和日志尾部。
+worker 会把所选的超时参数传给 AGY，并独立地对包含初始化在内的总时长设限：默认 60m，可在启动时用 `--timeout` 调整，最长 120m。如果在硬性到期清理之前已经收到回答文本，就连同警告一起交付；回答为空或没有回答时，已知会话则为 attention，否则仍是失败。wait/observe 无法延长这个时限。没有回答时，硬性到期产生 `reason=hard_timeout`；显式的 TIMEOUT 状态，或 AGY 精确的 `ERROR` 加 `timeout waiting for response`，产生 `reason=response_timeout`。已知会话时状态为 `status=attention`、退出码 5；否则状态为 `error`。报告保留最后的快照、日志、原配置以及运行前／当前的工作区状态（porcelain 无法识别已修改文件上的进一步内容改动，需要查看 diff）。恢复元数据包括 `requires_user_confirmation`、`suggested_timeout`（原超时的两倍，后台任务最多 120m）和确切的续跑命令。已到上限时，应缩小任务。调用方 agent 必须询问用户是继续还是停下检查，得到明确确认后才恢复。显式恢复会创建一个关联的新任务并重新获得时限，保留旧任务的最终记录；companion 绝不会自动重试。
 
-进度快照包含时间戳、已运行时长、最近五次工具活动的参数与输出节选，以及按步骤合并的最新回答片段。未知状态、尚未完成的文本和被截断的内容都会标明。每次活动的 JSON 最多占 1 KiB，回答片段最多占 2 KiB，整个快照最多占 8 KiB，均按 UTF-8 编码后的字节数计算。仅在回答用户明确提出的进度问题，或收到失败、需要介入的结果后诊断时，才按需读取 `details` 中的有限片段。
+wait 在完成或软到期之前保持静默。运行期间，只有用户明确询问进度时才值得观测；保留原有的等待，不要把这次询问变成定期检查。宿主的会话收集（例如 Codex 的 `write_stdin`）取回的是待完成命令的输出，其中可能包含软到期的快照；它不会独立读取 AGY 的进度。优先使用后台完成通知或受支持的较长阻塞等待。避免没有新内容的短轮询、sleep/observe 循环，以及为例行汇报查询进度。
 
-`done` 表示调用和答复交付已结束，不代表任务已验收。有警告的成功调用会在 `wait/result` 的标准错误中附带最多 8 KiB 的日志尾部及完整日志路径；日志记录 agy-cli 的原始状态和退出码。主 agent 根据答复和产物判断是否完成，需要诊断时才读取更多信息或使用 `observe`，不据回答措辞猜测超时。
+在运行环境支持的情况下，为每个任务使用一个独立的后台 wait，不要把多个任务串在同一个 shell 里依次等待。否则，在宿主工具调用的时限内使用尽可能长的等待。任务完成会结束正在执行的 wait，但模型何时收到结果由外层运行环境决定。Bash 加技能无法在所有环境下唤醒一个已经空闲的模型；单靠定时说明并不会安排另一次调用。
 
-快照记录的是已经观察到的活动。一次工具调用完成，并不能单凭这一点判断任务取得了有用进展。中间的工具错误会保留供诊断，但不会自动变成最终成功结果中的警告。
+仓库内的状态保存在 `<repo>/.agy-staff/`。`state.json` 记录会话、按会话 ID 建立索引的配置历史（包括前台 ask）以及生命周期记录，更新时受短事务写锁保护；观测读取保持只读。`config.json` 保存可选的权限策略。每个任务都有执行规格、诊断日志、结果、最终状态文件、原始 stdout（`.events.jsonl`）以及原子发布的、有长度限制的快照（`.progress.json`）。原始记录可能包含未知或格式无效的事件。旧任务缺少活动文件时，只返回仅含状态的快照。
 
-### 等待由主 agent 如何安排
-
-等待命令在完成或到期之前不会持续输出进度。只有用户明确询问进展时，主 agent 才在保留原有等待的同时调用 `observe`，根据快照回答；一次询问不代表开启定期观测。查看进度不会重置任务时限，也不会取走其他观察者的记录。
-
-支持后台命令的环境，可以为每个任务保留一个独立的 `wait`，避免把多个任务放进同一个 shell 中依次等待。其他环境应在工具时限内使用尽可能长的阻塞等待。宿主工具（例如 Codex 的 `write_stdin`）收集待完成的等待命令输出，属于必要的结果收集；输出可能包含等待到期时的快照，但它不会独立读取 AGY 进度。
-
-任务完成会结束正在执行的 `wait`，但主 agent 何时收到结果、何时开始下一轮处理，由外层运行环境决定。单靠 Bash 命令和技能中的定时说明，插件无法主动唤醒一个已经空闲的模型。主 agent 应使用环境提供的后台完成通知或较长等待，避免反复发起没有新内容的短轮询，也不安排 sleep/observe 循环或为例行汇报查询进度。
-
-### 执行时限
-
-任务的执行时限与 `wait` 的等待时长是两回事。worker 从初始化开始计算总运行时间，默认上限为 60 分钟；启动任务时可以用 `--timeout` 调整，最长 120 分钟。companion 也会把所选时长作为响应超时参数传给 AGY。`wait` 和 `observe` 都不会延长这项时限。
-
-到达执行上限时，worker 会停止运行并清理相关进程。如果清理前已经收到回答文本，就交付文本并附上警告，由主 agent 判断任务是否完成；如果没有回答或回答为空，任务以 `reason=hard_timeout` 结束。AGY 的显式 TIMEOUT 状态或精确的 `ERROR` / `timeout waiting for response` 错误对应 `reason=response_timeout`；其他工具、网络、认证或配额错误保留原错误分类。已知会话 ID 时状态为 `attention`、退出码为 `5`，否则为 `error`。报告保留最后的快照、日志、原配置以及运行前和当前的工作区状态；状态列表不能识别已修改文件上的进一步内容改动，仍需查看 diff。
-
-### 取消与恢复
-
-`models` 列出 agy 当前提供的模型 ID；`AGY_BIN` 是 agy-pick 时，还会附上各账号剩余额度（5h／每周）。
-
-`cancel <id>` 会先记录取消请求，等 worker 保存取消报告并将任务状态设为 `canceled` 后才返回成功。它会保留已经崩溃的任务的诊断信息，也不会仅凭保存的 PID 就向一个未经身份核实的进程发送信号。缺少取消通道的旧任务会明确报错。取消命令报错时，应检查任务和日志，不能据此认定执行已经停止。中断 `wait` 只会结束等待，不会取消后台任务。
-
-需要继续已有会话时，使用 `continue --job <id> --prompt "..."`。它会沿用所选任务的模式、模型和权限配置，创建一个关联的新任务。也可以用 `--conversation <id>` 选择已记录的会话。显式指定模型或权限参数时，会覆盖继承的值。
-
-`restart <id>` 会用原任务和配置重新开始，但不复用原会话。新任务会重新生成当前工作区的上下文。对于旧版本保存的任务规格，companion 会将其中的旧快照标记为历史信息，再追加当前上下文。
-
-继续或重启前，应先用 `git status` 和 `git diff` 检查上一次执行留下的修改。你可以从同一 Git 工作树（worktree）的根目录或任意子目录发起恢复，任务实际执行时会回到原工作目录。通用 `continue` 命令遇到未登记的会话 ID 会报错，不会搜索其他工作树或启动 AGY。如果目标会话对应的任务仍在运行（无论是通用 `continue`，还是某个模式的 `--continue`/`--conversation`），companion 会以退出码 1 拒绝，并返回该任务的 ID 和状态；后续指令不会排队，需要先等待或取消。
-
-恢复会创建新任务，保留原任务的最终记录，并重新获得默认 60 分钟的执行时限；也可以用 `--timeout` 指定其他时长。恢复信息提供 `requires_user_confirmation`、建议的 `suggested_timeout` 和具体续跑命令。建议超时为原时长的两倍，后台最多 120 分钟；已到上限时应缩小任务。主 agent 必须询问你是否继续或停下查看工作区，得到明确确认后才执行。companion 不会自动重试或续跑。前台 `ask` 的历史会话配置也按会话 ID 保存，不会因后续任务覆盖而丢失。
-
-### 退出码
-
-`wait`、`observe` 和带任务 ID 的 `status` 使用以下退出码：
-
-| 退出码 | 含义 |
-| --- | --- |
-| `0` | 本次调用结束、答复已交付，状态为 `done`；不代表任务已验收 |
-| `2` | 任务仍在运行，状态为 `running` |
-| `3` | 任务失败或进程崩溃，状态为 `error` 或 `crashed` |
-| `5` | 可续跑超时，状态为 `attention`；询问用户是否继续，确认后才恢复。`result` 对此状态也返回 5，其他状态保留原有退出行为 |
-| `4` | 任务已取消，状态为 `canceled` |
-| `1` | 命令本身出错，例如参数无效或任务不存在 |
-
-### 输出与本地记录
-
-标准输出保存任务结果，以及需要随结果展示的工作区警告。`[agy-staff]` 开头的运行信息记录模式、权限、模型、耗时、用量和会话 ID；前台运行时写入标准错误，后台运行时写入 `jobs/<id>.log`。这些信息供调用方排查问题，不属于回答正文，也不会写入 `jobs/<id>.result.md`。
-
-仓库内的状态保存在 `<repo>/.agy-staff/`。`state.json` 记录会话和任务状态，更新时使用短事务锁；进度查询只读取状态。`config.json` 保存可选的仓库权限策略。
-
-每个任务还有自己的执行规格、诊断日志、结果文件和最终状态文件，以及原始输出 `.events.jsonl` 和进度快照 `.progress.json`。快照通过原子替换发布，原始输出则可能保留尚未识别或格式无效的事件。旧任务即使没有活动文件，仍可读取已有状态和结果。
-
-任务成功且没有警告时，worker 会先保存结果和元数据，再删除原始输出与进度快照。失败、取消、执行超时或带警告完成时，会保留这些中间记录。结果、诊断日志、会话元数据和 AGY 自己的会话记录都会保留。
-
-如果查询恰好遇到文件清理，companion 会重新检查任务的最终状态：`observe` 返回状态和结果位置，`wait` 返回完整结果。`observe` 不会为了生成最终快照而读取结果正文。进程崩溃且没有结果时，诊断报告会提供任务启动记录、进程 ID、日志是否存在及其大小，以及后续检查或恢复命令，不会复制完整提示词或环境变量。
+任务成功且没有警告后，会先让结果和元数据落盘，再删除原始流和快照。失败、取消、硬性超时和带警告的结果会保留中间记录。结果、诊断日志、会话元数据和 AGY 自己的会话存储都会保留。与清理竞争的读取者会重新检查最终状态：observe 返回最终元数据；wait 返回结果。observe 从不读取结果文件的内容，即使成功后的中间文件已被删除。崩溃且没有结果的报告包含派发／worker 启动的证据、进程 ID、日志是否存在及其大小，以及后续检查／恢复命令，不会复制提示词或环境变量的值。
 
 <a id="让-agy-staff-不进-git"></a>
 
-### 避免将本地状态提交到 Git
+### 避免将 `.agy-staff/` 提交到 git
 
-从 0.4 起，companion 首次在仓库中创建 `.agy-staff/` 时，会检查该目录是否已被忽略。如果没有，就将它加入本地的 `.git/info/exclude`。这样既能避免误提交任务记录，也不会改动团队共享的 `.gitignore`。
+自动处理：companion 首次在仓库中创建 `.agy-staff/` 时，除非该路径已被忽略，否则会把 `.agy-staff/` 追加到 `.git/info/exclude`（仓库本地、不被跟踪）。它从不改动被跟踪的 `.gitignore`——状态目录是本地的临时空间，把它加进共享的、已提交的文件会改变其他所有人的仓库。
 
 ## 疑难排查
 
-### agy 报错，但可能已经返回了回答
+- **“agy reported an error (status ERROR)”**——companion 会原样转述 agy 自己的错误，仅当错误文本确实匹配某种已知情况时才附加原因提示（模型 ID 无效 → 运行 companion 的 `models` 子命令；登录过期 → 交互式运行一次 `agy` 重新登录；额度耗尽）。如果 agy 报了错但仍返回了回答文本，companion 仍会交付该回答——退出码 0，回答写入 stdout，警告写入 stderr（`done_with_warnings`）；如果到期时没有回答但会话已知，则改为 attention（退出码 5）。
+- **`~/.gemini/...` 上出现 `operation not permitted` ／ `bind: operation not permitted` ／ 在终端里 `agy` 能用却突然提示 “authentication failed”**——请检查是否有宿主的命令沙箱在阻止访问。AGY 需要读取它的 OAuth 凭据，并为内部语言服务绑定本机端口；只放开工作区写权限可能不足以提供这些访问。遇到这类限制时，应使用宿主的授权机制，让 companion 在支持 AGY 的环境中运行。启动和管理任务时要使用相同的权限环境。
+- **`wait`/`status` 误报崩溃（“finished with status crashed and no stored result”）**——后台任务在一种权限或沙箱环境（例如沙箱外）中启动，却在另一种环境（例如命令沙箱内）中收取。收取方无法跨沙箱边界看到 worker 的 PID，于是把仍在运行的任务误判为崩溃。请在与启动任务相同的沙箱外权限环境中运行管理命令（`wait`、`status`、`result`）；从沙箱外重新运行即可继续等待，或报告正常状态。
+- **回答为空，“status SUCCESS”**——受限运行即使工具调用被拒绝，也可能报告成功。检查权限配置来自参数、仓库策略，还是更早的会话。可以用 `setup` 配置允许执行的命令，或者在已获授权时显式传入 `--unrestricted`；仅去掉 `--restricted` 不会覆盖继承来的配置。部分原生工具在受限的非交互运行中，即使有允许规则也仍然不可用。unrestricted 模式或不使用工具的 ask 返回空回答，需要另行诊断；请保留诊断信息并报告。
+- **“unknown flag --X: the whole string … arrived as a single argument”**——多个选项，通常连同任务，被引号包成了一个参数。每个选项都是独立的参数；任务应放在 `--prompt` 中。见[任务正文](#任务正文)。
+- **“task text exceeds the 200KB inline limit”**——companion 最终会把完整提示词作为一个命令行参数传给 AGY。`--prompt-file` 和 `--stdin` 能简化输入，却不会消除这个限制。请缩短任务正文，改为引用 PR、分支或文件，让 AGY 自行读取材料。
+- **工作区附加**——前台和后台调用都会传入 `--add-dir <repoRoot>`（非 Git 目录使用启动目录），续跑和重启也一样。没有显式附加时，测试过的 AGY print 模式会话即使没有 `--sandbox`，也可能在 `~/.gemini/antigravity-cli/scratch` 中启动；仅继承 shell 的 cwd 或 trusted-workspace 设置并不会附加仓库。companion 不传入 `--sandbox`。附加工作区提供限定范围的文件读取权限；受限命令仍需要相应的允许规则。
+- **implement 时工作区有未提交改动**——即使仓库已有改动，`implement` 也可以启动。companion 会在 agy 的提示词中加入有长度上限的状态摘要，让它知道这些路径是已有的用户工作。如果任务没有明确涉及它们，agy 在覆盖、清理、暂存、重置、删除、提交、推送或创建包含这些改动的 PR 之前应先询问。
+- **“agy modified the working tree during this review”**——一次 unrestricted 的 `research`/`review` 运行修改了本应保留的文件。请先查看列出的路径，辨别哪些改动来自本次运行，再决定撤销什么，同时保留用户已有的工作。
+- **agy 项目级权限**——agy 有与其 `--project` 体系关联的项目级规则（“最高优先级”）；这类规则的设置文件路径没有文档说明，也未经验证，所以 setup 只编辑全局文件。如果某条规则似乎被忽略，请在 agy 交互模式中确认。见[进阶：项目级权限](#进阶项目级权限)。
+- **规则上下文**——agy 会自动加载工作区中的 `AGENTS.md`/`GEMINI.md`/`.agents/rules/*.md`；在你委派任务的仓库中，请让这些文件保持合理。
 
-遇到 `agy reported an error (status ERROR)` 时，companion 会保留 agy 的原始错误，仅在错误文本与已知情况匹配时补充提示。例如，模型 ID 无效时提示运行 companion 的 `models` 子命令，登录过期时提示交互式运行 `agy` 重新登录。
+## 默认模型历史
 
-如果 AGY 报错时已经返回回答文本，companion 会尝试交付回答，并给出 `done_with_warnings` 警告。这种情况下退出码为 `0`，回答写入标准输出，警告写入标准错误；如果没有回答且命中超时分类，已知会话时改为 `attention`（退出码 5），其他情况按失败处理。
+0.7.9 跟进 Google 发布的 Gemini 4 Neon：research、review 和 implement 默认改为 `gemini-4-neon-high`，staffer 和 ask 仍用 Hydrogen，单独给 `--effort` 时沿用该模式的默认模型。Argon 与 Orchestrator (Argon) 的 id 会被拒绝。
 
-### 终端里可以运行，agent 环境里却提示权限或认证错误
+0.7.8 将各模式的默认模型和 `--effort` 简写从 Gemini 3.8 Flash 换成 Gemini 4 Hydrogen（推理强度档位不变），并新增 `xhigh` 档。显式 `--model` 仍可指定 Flash 的 id。
 
-如果出现 `operation not permitted`、`bind: operation not permitted`，或突然提示 `authentication failed`，请先检查 companion 是否运行在限制命令执行的沙箱中。AGY 需要读取自己的 OAuth 凭据，并为内部语言服务绑定本机端口；这些操作可能受到宿主环境限制。只放宽工作目录的写权限，不一定能解决凭据或端口访问问题。
+0.5.0 将各模式的默认模型，以及 `flash` 别名和 `--effort` 简写，从 Gemini 3.7 Flash 调整为 Gemini 3.8 Flash。
 
-在遇到这类限制的环境中，应使用宿主提供的授权方式，让 companion 在能够正常运行 AGY 的权限环境中执行。启动和管理后台任务时，也要使用相同的权限环境。
-
-### `wait` 或 `status` 提示任务崩溃
-
-如果任务在沙箱外启动，却在另一个权限环境里收取结果，管理命令可能看不到 worker 进程，并提示 `finished with status crashed and no stored result`。请先回到任务启动时的权限环境，重新运行 `wait`、`status` 或 `result`。
-
-如果仍然报错，再按诊断报告中的路径检查日志和进程信息。仅凭一次跨环境的查询失败，不应认定任务已经停止。
-
-### 状态为 `SUCCESS`，但回答为空
-
-受限任务可能遇到工具调用全部被拒绝，而 AGY 仍报告成功的情况。先检查错误提示中记录的权限来源：它可能来自本次参数、仓库策略，也可能继承自上一次会话。
-
-需要保留受限权限时，可以通过 `setup` 配置命令允许列表。如果你允许本次任务放宽权限，应显式传入 `--unrestricted`。仅删除 `--restricted` 不一定有效，因为继续会话时仍会继承原来的配置。部分工具在非交互模式下不接受允许规则，即使运行过 `setup` 也可能不可用。
-
-`ask` 不调用工具，因此不能用工具被拒绝解释它的空回答。`unrestricted` 任务的空回答也不能简单归因于权限；请保留诊断信息并报告问题。
-
-### 参数和任务被放进了同一个字符串
-
-`unknown flag --X: the whole string … arrived as a single argument` 表示多个选项，可能连同任务正文，被引号包成了一个参数。请把选项分别传入，并用 `--prompt` 提供任务正文。具体示例见[任务正文](#任务正文)。
-
-### 任务正文超过长度上限
-
-`task text exceeds the 200KB inline limit` 表示传入 AGY 的任务正文太长。companion 最终仍会将完整提示词放在一个命令行参数中；`--prompt-file` 和 `--stdin` 能简化输入，却不会消除这个长度限制。
-
-可以在任务中提供 PR 编号、分支或文件路径，让 agy 自行读取材料，避免把大段内容直接粘进任务描述。
-
-### 工作目录与已有改动
-
-companion 的前台和后台调用都传入 `--add-dir <repoRoot>`；非 Git 目录使用启动目录，续跑和重启也会附加原工作区。测试过的 AGY 在未显式附加目录时，即使没有 `--sandbox`，print 模式也可能进入 `~/.gemini/antigravity-cli/scratch`。仅继承 shell 的 cwd 或配置 trusted workspace 不足以附加仓库。companion 不传入 `--sandbox`。附加目录提供工作区内文件读取权限，restricted 下执行命令仍需相应允许规则。
-
-`implement` 允许在已有修改的工作区执行。提示词会列出运行前的状态；如果任务没有明确涉及这些修改，agy 应在覆盖、清理、暂存、重置、删除或提交它们之前询问用户，也不应擅自将它们加入推送或 PR。
-
-如果 `research` 或 `review` 返回 `agy modified the working tree during this review`，请查看报告列出的路径，确认哪些变化由本次任务引入，再决定是否撤销。处理时应保留原有的用户改动。
-
-### 项目权限和工作区规则
-
-如果某条 agy 项目权限规则似乎没有生效，请在交互模式中确认设置。项目级设置文件的路径和配置流程仍未由本项目验证，详见[项目级权限](#进阶项目级权限)。
-
-AGY 会读取工作区中的 `AGENTS.md`、`GEMINI.md` 和 `.agents/rules/*.md`。这些文件也会影响委派任务，出现与预期不一致的行为时，应一并检查。
-
-## 从 0.1 迁移
-
-0.2 调整了权限配置的名称和默认值，并移除了旧版用于指定审查对象及执行方式的参数。
-
-| 0.1 写法或行为 | 迁移后的写法或行为 | 说明 |
-| --- | --- | --- |
-| `research`、`review` 默认使用 strict | `research`、`review`、`implement` 默认使用 `unrestricted` | 新任务不再依赖预先运行 `setup`；`ask` 仍不使用工具 |
-| `--strict` | `--restricted` | 旧名作为兼容别名保留，并在标准错误中给出弃用提示 |
-| `--loose` | `--unrestricted` | 与原参数含义一致，旧名会提示弃用 |
-| 输出中的 `strict`、`loose` | `restricted`、`unrestricted` | 运行信息中的 `profile` 字段使用新名称 |
-| `--diff-file <path>` | `review --prompt "Review the patch at /tmp/change.patch"` | 在任务正文中指定补丁 |
-| `--pr <num>` | `review --prompt "Review PR #730"` | 在任务正文中指定 PR |
-| `--target <ref>` | `review --prompt "Review changes against master"` | 在任务正文中指定比较对象 |
-| `--background`、`--wait` | 按模式采用固定执行方式 | `ask` 同步返回答案，其余工具模式返回任务 ID |
-
-已移除的参数会报错并给出替代写法。权限别名虽然仍可兼容，新的命令和脚本应使用 `--restricted` 与 `--unrestricted`。
-
-## 从 0.3 迁移
-
-0.4 将原先的命令和技能两层入口合并为角色技能，并新增 `staffer`。后台管理仍由 companion 执行，用户通过自然语言请求 `jobs` 技能处理即可。
-
-| 0.3 入口 | 0.4 入口 | 说明 |
-| --- | --- | --- |
-| `/agy:research` + `/agy:agy-research` | `/agy:researcher` | 每种角色保留一个技能入口 |
-| `/agy:review` + `/agy:agy-review` | `/agy:reviewer` | 支持代码审查和方案、决策审查 |
-| `/agy:implement` + `/agy:agy-implement` | `/agy:implementer` | 使用角色名称作为入口 |
-| `/agy:ask` + `/agy:agy-ask` | `/agy:ask` | 名称不变，入口合并 |
-| 无对应角色 | `/agy:staffer` | 新增通用任务角色 |
-| `/agy:status`、`/agy:wait`、`/agy:result`、`/agy:cancel`、`/agy:continue`、`/agy:setup` | `jobs` 技能 | 直接说明要查看、等待、取消或继续哪个任务；companion 子命令保持不变 |
-| 手动设置 `.git/info/exclude` | 首次运行时自动设置 | 本地状态目录会自动加入忽略规则 |
-
-## 从 0.4.4 迁移（破坏性变更）
-
-0.4.5 要求任务正文通过明确的来源传入，不再接受直接放在命令后的位置参数。这样，companion 就可以保留 shell 的参数边界，避免把任务里形似选项的文本重新解释为命令参数。
-
-| 旧写法 | 新写法 |
-| --- | --- |
-| `ask "question"` | `ask --prompt "question"` |
-| `review "Review PR #730"` | `review --prompt "Review PR #730"` |
-| `review "--restricted Review PR #730"` | `review --restricted --prompt "Review PR #730"` |
-
-旧的位置参数正文会直接报错，`--prompt-file` 和 `--stdin` 仍然可用。管理命令中的位置参数是任务 ID 或其他取值，不受这项变化影响，例如 `wait <id> --timeout 30s` 仍按原方式执行。
-
-## 从 0.4.5 迁移
-
-0.7.9 跟进 Google 发布的 Gemini 4 Neon：research、review、implement 默认改为 `gemini-4-neon-high`，staffer 与 ask 仍用 Hydrogen；单独给 `--effort` 时沿用该模式的默认模型。Argon 与 Orchestrator (Argon) 的 id 会被拒绝。
-
-0.7.8 将各角色的默认模型和 `--effort` 简写从 Gemini 3.8 Flash 换成 Gemini 4 Hydrogen（推理强度不变），并新增 `xhigh`。显式 `--model` 仍可指定 Flash。
-
-0.5.0 将各角色的默认模型，以及 `flash` 别名和 `--effort` 简写，从 Gemini 3.7 Flash 调整为 Gemini 3.8 Flash。推理强度保持不变：`ask` 为 low，`staffer` 和 `reviewer` 为 medium，`researcher` 和 `implementer` 为 high。
-
-如果已安装的 AGY 不支持默认模型，companion 会报错，不会自动换成别的模型。它会查询 `agy models`，列出可用 ID，并推荐相同推理强度的兼容选项，例如 `--model gemini-3.7-flash-high`。你可以显式指定兼容模型，也可以更新 AGY 后再使用默认值。
+如果已安装的 `agy` CLI 不提供某个模式的默认模型，companion 会明确报错，不会静默回退：它会查询 `agy models`，列出可用模型并给出兼容的推荐，同时建议优先更新 `agy`。
 
 ## Windows 支持
 
@@ -353,44 +238,24 @@ Windows 为尽力支持，由 CI 的 `Tests (Windows)` 任务覆盖，尚未在�
 
 ## 升级
 
-Claude Code 和 Codex 按版本号缓存插件，例如 `cache/agy-staff/agy/0.4.0`。缓存是否需要更新取决于版本号，而不是仓库的最新提交。因此，准备发布时需要同步更新两个插件 manifest 和 `package.json` 中的版本。
+```bash
+aghub-cli -g -a claude,codex source sync audichuang/agy-staff --skill agy --update --yes
+```
 
-### Claude Code
-
-先运行 `claude plugin marketplace update agy-staff` 更新插件市场的本地仓库，再运行 `claude plugin update agy@agy-staff` 更新已安装的副本，最后重启 Claude Code。
-
-如果版本号没有变化，`update` 可能仍判断为最新版本，保留旧提交。此时可以运行 `claude plugin uninstall agy@agy-staff && claude plugin install agy@agy-staff` 重新安装，再重启。单独执行 `install` 不会覆盖已经安装的插件。
-
-确认实际安装的提交时，可以查看 `~/.claude/plugins/installed_plugins.json` 中的 `gitCommitSha`，并与 `git -C ~/.claude/plugins/marketplaces/agy-staff log -1` 的结果比较。
-
-### Codex
-
-发布新版本后，运行 `codex plugin marketplace upgrade` 更新插件市场，再按安装流程更新插件并重启应用。必要时也可以移除并重新添加插件市场条目。若仍然出现旧行为，应先确认插件版本和当前会话加载的副本。
-
-### Pi
-
-Pi 的 Git 安装跟随所配置的分支或引用，本地路径安装则直接读取检出目录。没有固定版本的 Git 安装可以运行 `pi update --extension git:github.com/keli-wen/agy-staff`，然后在 Pi 中执行 `/reload`。
-
-本地开发时，在检出目录运行 `npm run generate:pi`，再执行 `/reload` 即可加载技能修改，无需先推送到远端。
+aghub-cli 会用新的提交替换 `~/.aghub/agy`。更早启动的会话可能仍然保留旧的技能文本；请新开一个会话来加载新版本。
 
 ## 仓库结构
 
-`skills/` 是角色技能的源文件，`pi-skills/` 是为 Pi 生成的入口。两者共用 `templates/` 中的提示词和 `companion/` 中的运行逻辑。
-
-```text
-companion/agy-companion.mjs    命令入口、模式选择、任务管理与 setup
-companion/stream-worker.mjs    AGY 流式执行、进程清理与执行时限
-companion/observation.mjs      事件解析、进度快照与输出长度限制
-companion/state-lock.mjs       状态更新与锁回收
-skills/                       角色技能与 jobs 管理技能，以及按需加载的参考文件
-pi-skills/                    自动生成的 Pi 入口与参考文件，不应手动编辑
-templates/                    共享提示词模板与宿主兼容说明
-scripts/generate-pi-skills.mjs  生成 Pi 技能并检查一致性
-.claude-plugin/               Claude Code 插件与插件市场配置
-.codex-plugin/plugin.json     Codex 插件配置
-.agents/plugins/              Codex 插件市场配置
-package.json                  Pi 包配置、npm 打包范围与验证命令
-tests/                        离线回归测试，以及单独启用的集成测试
-assets/                       图片、徽标与徽章
-docs/                         参考手册、安装说明和发布记录
+```
+skills/agy/SKILL.md                       entry point: mode routing, flags, result rules
+skills/agy/references/                    on-demand detail (code/general review, jobs, lead, setup, troubleshooting)
+skills/agy/templates/                     prompts sent to agy (staffer/ask/research/review/implement, evidence)
+skills/agy/companion/agy-companion.mjs    command entrypoint, modes, job management and setup
+skills/agy/companion/stream-worker.mjs    streaming execution, process cleanup and deadlines
+skills/agy/companion/observation.mjs      event parsing, progress snapshots and output budgets
+skills/agy/companion/state-lock.mjs       state-write locking and stale-lock recovery
+scripts/                                  diagram, badge and logo generators
+assets/                                   design diagrams, logo, badges
+tests/                                    offline regression tests and opt-in integration suites
+docs/                                     reference, agent install guide and release notes
 ```

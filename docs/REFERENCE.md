@@ -4,23 +4,23 @@ Back to the [README](../README.md). See the [Chinese reference](REFERENCE.zh-CN.
 
 ## Modes and defaults
 
-| Persona (skill) | Companion mode | What it is | Default model | Profile | Execution |
-|---|---|---|---|---|---|
-| `ask` | `ask` | Cheap zero-tool one-shot Q&A (~3s); doubles as the post-install smoke test | `gemini-4-hydrogen-low` | restricted (prompt-only) | synchronous — the answer comes back in the same call |
-| `staffer` | `staffer` | General-purpose delegation without a specialist role or fixed output format; shared operational guardrails still apply | `gemini-4-hydrogen-medium` | unrestricted | background job — returns a job id |
-| `researcher` | `research` | Deep survey with cited sources and explicit unverified-claims marking | `gemini-4-neon-high` | unrestricted | background job — returns a job id |
-| `reviewer` | `review` | Second-opinion verifier, two flavors routed by subject: code review (severity-ranked findings with `file:line` refs) and general review (multi-angle challenge of a plan, design, or decision) | `gemini-4-neon-high` | unrestricted | background job — returns a job id |
-| `implementer` | `implement` | Well-scoped coding task; agy edits the working tree and can perform explicitly requested Git delivery | `gemini-4-neon-high` | unrestricted | background job — returns a job id |
+| Mode | What it is | Default model | Profile | Execution |
+|---|---|---|---|---|
+| `ask` | Cheap zero-tool one-shot Q&A (~3s); doubles as the post-install smoke test | `gemini-4-hydrogen-low` | restricted (prompt-only) | synchronous — the answer comes back in the same call |
+| `staffer` | General-purpose delegation without a specialist role or fixed output format; shared operational guardrails still apply | `gemini-4-hydrogen-medium` | unrestricted | background job — returns a job id |
+| `research` | Deep survey with cited sources and explicit unverified-claims marking | `gemini-4-neon-high` | unrestricted | background job — returns a job id |
+| `review` | Second-opinion verifier, two flavors routed by subject: code review (severity-ranked findings with `file:line` refs) and general review (multi-angle challenge of a plan, design, or decision) | `gemini-4-neon-high` | unrestricted | background job — returns a job id |
+| `implement` | Well-scoped coding task; agy edits the working tree and can perform explicitly requested Git delivery | `gemini-4-neon-high` | unrestricted | background job — returns a job id |
 
-`lead` provides task orchestration guidance for the current agent, reusing the existing companion modes without adding a mode of its own; invoke `/agy:lead` in Claude Code, `$agy:lead` in Codex, or `/skill:agy-lead` in Pi.
+`skills/agy/references/lead.md` provides task orchestration guidance for the current agent, reusing the existing companion modes without adding a mode of its own.
 
 Execution style is fixed per mode and cannot be overridden by a flag. `continue` inherits the resolved mode's style (continuing an `ask` stays synchronous; continuing the others returns a job id).
 
-Claude Code, Codex, and Pi surface the same personas, backed by one companion script (`companion/agy-companion.mjs`, Node stdlib only) and shared prompt templates (`templates/`). Invocation tokens: `/agy:<persona>` on Claude Code, `$agy:<persona>` on Codex, and `/skill:agy-<persona>` on Pi. Pi's manifest exposes only `pi-skills/`, generated mechanically from canonical `skills/` via `npm run generate:pi`. Generated skills use `agy-` prefixes, rewrite sibling references, and append `templates/harness-compatibility.md` (directing the host to adapt missing tools to equivalent methods without dropping requirements, or ask for help). Job management (`wait`/`status`/`result`/`cancel`/`continue`/`setup`) lives in `jobs` (`agy-jobs` on Pi) plus the companion CLI — ask for it in natural language ("is the agy job done?").
+Claude Code and Codex load the same skill (`skills/agy/`, installed to `~/.aghub/agy`): `SKILL.md` routes the request to a mode, `references/` carries on-demand detail (review composition, jobs, lead, setup, troubleshooting), `templates/` holds the prompts sent to agy, and one companion script (`companion/agy-companion.mjs`, Node stdlib only) runs everything. Invoke it as `/agy <mode> …` in Claude Code or `$agy <mode> …` in Codex, or just ask in natural language ("is the agy job done?").
 
 ## The two-profile permission model
 
-Every mode runs under exactly one of two profiles. **Every tool-using mode defaults to `unrestricted`**, so the plugin works out of the box with no allowlist and no setup; `--restricted` is the opt-in hardening flag. `--restricted`/`--unrestricted` override per call (`ask` is tool-free and forced restricted — it ignores both, and passing `--unrestricted` to it prints a note and proceeds restricted).
+Every mode runs under exactly one of two profiles. **Every tool-using mode defaults to `unrestricted`**, so the skill works out of the box with no allowlist and no setup; `--restricted` is the opt-in hardening flag. `--restricted`/`--unrestricted` override per call (`ask` is tool-free and forced restricted — it ignores both, and passing `--unrestricted` to it prints a note and proceeds restricted).
 
 The profile for a run is resolved in this order: CLI flag > recorded conversation profile (when continuing) > per-repo policy ([`setup --restrict`](#per-repo-policy-setup---restrict)) > built-in default.
 
@@ -71,7 +71,7 @@ The default optimizes for the common case: your own code on your own machine. Un
 
 ### Optional hardening (setup)
 
-`setup` is an optional companion management command handled by the `jobs` skill. Ask your host agent to configure agy's restricted mode when you need it. The command checks the `agy` binary and previews **evidence-gathering allow/deny rules** for `~/.gemini/antigravity-cli/settings.json`. Only after explicit confirmation does it back up the file and append the configuration. Default unrestricted tasks and tool-free ask do not depend on setup.
+`setup` is an optional companion management command; its guided flow is `skills/agy/references/setup.md`. Ask your host agent to configure agy's restricted mode when you need it. The command checks the `agy` binary and previews **evidence-gathering allow/deny rules** for `~/.gemini/antigravity-cli/settings.json`. Only after explicit confirmation does it back up the file and append the configuration. Default unrestricted tasks and tool-free ask do not depend on setup.
 
 Two properties of these rules you should know before applying them:
 
@@ -123,7 +123,7 @@ That table is the whole public surface. There is no flag for execution style —
 
 ## Task text
 
-This section is about the **companion CLI**, not about how you invoke a persona. You type your task as plain text after the slash command (`/agy:reviewer Review PR #730`); the skill reads it and composes the `--prompt` call below. You never type `--prompt` yourself.
+This section is about the **companion CLI**, not about how you invoke the skill. You type your task as plain text (`/agy review Review PR #730`); the skill reads it and composes the `--prompt` call below. You never type `--prompt` yourself.
 
 Every run command (`staffer`, `research`, `review`, `implement`, `ask`, `continue`) takes its task from **exactly one** of three sources:
 
@@ -156,7 +156,7 @@ review --prompt "Review the patch at /tmp/change.patch"
 
 An empty task string is an error — `review` needs a subject. If the subject is ambiguous, agy is instructed to report the ambiguity rather than guess at what you meant.
 
-The review template itself is a neutral skeleton (reviewer stance, evidence discipline, guardrails). Everything flavor-specific — the evidence-gathering menu, review axes, severity ranking, and output format for code reviews; the multi-angle challenge framing for plan/decision reviews — travels in the task string, composed by the `reviewer` skill from `skills/reviewer/references/{code-review,general-review}.md`.
+The review template itself is a neutral skeleton (reviewer stance, evidence discipline, guardrails). Everything flavor-specific — the evidence-gathering menu, review axes, severity ranking, and output format for code reviews; the multi-angle challenge framing for plan/decision reviews — travels in the task string, composed by the skill from `skills/agy/references/{code-review,general-review}.md`.
 
 ## State and background jobs
 
@@ -164,7 +164,7 @@ The review template itself is a neutral skeleton (reviewer stance, evidence disc
 
 `staffer`, `research`, `review` and `implement` return stable job handles promptly. Default flow: prepare the prompt, dispatch, wait for the final result, then validate as needed. While running, do not proactively observe, read logs or inspect intermediate artifacts, including for routine updates. Observe progress only when the user explicitly asks; diagnose after a failure or a result requiring intervention. Each detached worker continuously drains AGY `stream-json`, even with no observers. There is no additional daemon or scheduler.
 
-- `wait [id] [--timeout <dur>]` waits for completion or its wait timeout. Completion delivers the existing result; soft expiry returns a JSON observation snapshot directly and leaves execution running. Ordinary tool activity does not end the wait early. Bare wait defaults to 100s; skills recommend an explicit 10m wait. On exit 2, wait again for the same job without extra progress checks; the returned snapshot does not require intervention.
+- `wait [id] [--timeout <dur>]` waits for completion or its wait timeout. Completion delivers the existing result; soft expiry returns a JSON observation snapshot directly and leaves execution running. Ordinary tool activity does not end the wait early. Bare wait defaults to 100s; the launch output prints an explicit 9m wait. On exit 2, wait again for the same job without extra progress checks; the returned snapshot does not require intervention.
 - `observe [id]` always returns bounded JSON (at most 8 KiB): current progress while running; terminal status, result path/availability and collection instructions when finished. Error/canceled/crashed states include bounded diagnostic and recovery metadata, never the full report. It reads job state independently of any wait, without resetting deadlines or consuming another observer’s history.
 - `status [id]` lists jobs or shows state and a bounded diagnostic log tail. `result [id]` reprints stored output.
 - `models` prints the ids agy offers now (`AGY_BIN models`) and, when `AGY_BIN` is agy-pick, each account's quota left (5h / weekly) from `agy-pick --status`.
@@ -174,7 +174,7 @@ The review template itself is a neutral skeleton (reviewer stance, evidence disc
 
 Continuation/restart can be invoked from any directory within the same worktree and execute in the original cwd. Generic `continue` rejects unrecorded conversation IDs without launching AGY or searching other worktrees. Continuing a conversation whose job is still running (generic `continue`, or a mode's `--continue`/`--conversation`) is refused with exit 1 and the job ID and status; the follow-up is not queued, and the caller waits or cancels first. For continuation, explicit model/profile flags override the recorded values; otherwise those values are inherited. A new recovery budget defaults to 60m unless overridden.
 
-Exit codes for wait/observe/status-with-id: **0** done, **2** running, **3** error/crashed, **4** canceled, **5** attention (resumable timeout), **1** command error. `result` also exits 5 for attention; its legacy exit behavior for other states is unchanged. Observe exit 0 means the job is finished, not that its report was delivered. Collect an already pending wait session; otherwise call result. Wait/result keep their existing full-result contract. A `done` status means invocation and response delivery ended, not that the task was accepted. Successful calls with warnings include an 8 KiB log tail on stderr and the full-log path; native status and exit code are recorded in that log. The orchestrator assesses completion and inspects further only when needed. Intermediate tool errors are retained internally and are not automatically promoted to warnings in successful delivery. A running snapshot contains timestamps, elapsed time, the latest five tool activities with input/output excerpts and the latest response text merged by step. Unknown states, incomplete text and truncation are labeled; a tool finishing is not proof of useful progress. UTF-8 JSON budgets are 1 KiB per activity, 2 KiB for text and 8 KiB total. For a user-requested progress answer or diagnosis after failure/required intervention, read bounded `details` excerpts only if the returned information is insufficient.
+Exit codes for wait/observe/status-with-id: **0** done, **2** running, **3** error/crashed, **4** canceled, **5** attention (resumable timeout), **1** command error. `result` exits 5 for attention and 0 for every other finished state, error and canceled included. Observe exit 0 means the job is finished, not that its report was delivered. Collect an already pending wait session; otherwise call result. Wait/result keep their existing full-result contract. A `done` status means invocation and response delivery ended, not that the task was accepted. Successful calls with warnings include an 8 KiB log tail on stderr and the full-log path; native status and exit code are recorded in that log. The orchestrator assesses completion and inspects further only when needed. Intermediate tool errors are retained internally and are not automatically promoted to warnings in successful delivery. A running snapshot contains timestamps, elapsed time, the latest five tool activities with input/output excerpts and the latest response text merged by step. Unknown states, incomplete text and truncation are labeled; a tool finishing is not proof of useful progress. UTF-8 JSON budgets are 1 KiB per activity, 2 KiB for text and 8 KiB total. For a user-requested progress answer or diagnosis after failure/required intervention, read bounded `details` excerpts only if the returned information is insufficient.
 
 The worker passes the selected timeout to AGY and independently enforces an overall limit including initialization: default 60m, configurable up to 120m with launch `--timeout`. If response text arrived before hard-expiry cleanup, it is delivered with a warning; an empty or absent response needs attention when a conversation is known, otherwise it remains a failure. Wait/observe cannot renew it. Without a response, hard expiry produces `reason=hard_timeout`; an explicit TIMEOUT status or AGY's exact `ERROR` plus `timeout waiting for response` produces `reason=response_timeout`. A known conversation yields `status=attention` and exit 5; without one the status is `error`. Reports retain the last snapshot, logs, original configuration and pre-run/current workspace status (porcelain cannot detect content changes to an already dirty file; inspect diffs). Recovery metadata includes `requires_user_confirmation`, `suggested_timeout` (double the previous timeout, capped at 120m for background jobs) and an exact continuation command. At the ceiling, narrow the task. Calling agents must ask whether to continue or stop and inspect, and recover only after explicit user confirmation. Explicit recovery creates a linked new job with a fresh budget, preserving the old terminal record; the companion never retries automatically.
 
@@ -188,7 +188,7 @@ After warning-free success, results and metadata become durable before the raw s
 
 ### Keeping `.agy-staff/` out of git
 
-Automatic since 0.4: when the companion creates `.agy-staff/` for the first time in a repo, it appends `.agy-staff/` to `.git/info/exclude` (repo-local, untracked) unless the path is already ignored. It never touches the tracked `.gitignore` — the state directory is local scratch, and adding it to a shared, committed file would change the repo for everyone else.
+Automatic: when the companion creates `.agy-staff/` for the first time in a repo, it appends `.agy-staff/` to `.git/info/exclude` (repo-local, untracked) unless the path is already ignored. It never touches the tracked `.gitignore` — the state directory is local scratch, and adding it to a shared, committed file would change the repo for everyone else.
 
 ## Troubleshooting
 
@@ -204,57 +204,15 @@ Automatic since 0.4: when the companion creates `.agy-staff/` for the first time
 - **Project-scoped agy permissions** — agy has project-level rules ("highest priority") tied to its `--project` system; the settings-file path for those is undocumented and unverified, so setup only edits the global file. If a rule seems ignored, check agy interactively. See [Advanced: project-scoped permissions](#advanced-project-scoped-permissions).
 - **Rules context** — agy auto-loads `AGENTS.md`/`GEMINI.md`/`.agents/rules/*.md` from the workspace; keep those files sane in repos where you delegate.
 
-## Migration from 0.1
-
-0.2 renamed the permission profiles, changed which profile the modes default to, and dropped the flags that 0.1 used to steer review and execution.
-
-| 0.1 | 0.2 | Notes |
-|---|---|---|
-| `research`/`review` default to the strict (restricted) profile | `research`/`review`/`implement` default to `unrestricted` | 0.1 fail-closed research and review unless you ran setup first. 0.2 works out of the box and makes `--restricted` the opt-in hardening flag; `ask` still runs restricted (tool-free). |
-| `--strict` | `--restricted` | Old name accepted as a deprecated compatibility alias; it warns on stderr. Same semantics. |
-| `--loose` | `--unrestricted` | Old name accepted as a deprecated compatibility alias; it warns on stderr. Same semantics. |
-| profile names "strict"/"loose" in output | "restricted"/"unrestricted" | Cosmetic rename; the telemetry line (stderr) now prints `profile=restricted` / `profile=unrestricted`. |
-| `--diff-file <path>` | *(removed)* | Review is prompt-based: `review --prompt "Review the patch at /tmp/change.patch"`. |
-| `--pr <num>` | *(removed)* | `review --prompt "Review PR #730"`. |
-| `--target <ref>` | *(removed)* | `review --prompt "Review changes against master"`. |
-| `--background` / `--wait` | *(removed)* | Execution style is fixed per mode: `ask` is synchronous, `research`/`review`/`implement` return a job id. Manage them with `status`/`result`/`cancel`. |
-
-Removed flags fail fast with a message naming the replacement. The deprecated profile aliases remain accepted for compatibility; use `--restricted` and `--unrestricted` in new commands and scripts.
-
-## Migration from 0.3
-
-0.4 consolidated the two invocation layers (commands + skills) into a single skills layer with persona names, added the `staffer` mode, and made `.agy-staff/` hygiene automatic.
-
-| 0.3 | 0.4 | Notes |
-|---|---|---|
-| `/agy:research` (command) + `/agy:agy-research` (skill) | `/agy:researcher` | one skill per persona; the command layer is gone |
-| `/agy:review` + `/agy:agy-review` | `/agy:reviewer` | now routes two flavors: code review and general (plan/decision) review |
-| `/agy:implement` + `/agy:agy-implement` | `/agy:implementer` | |
-| `/agy:ask` + `/agy:agy-ask` | `/agy:ask` | unchanged name, single entry |
-| *(none)* | `/agy:staffer` | new general-purpose mode with a minimal prompt |
-| `/agy:status`, `/agy:wait`, `/agy:result`, `/agy:cancel`, `/agy:continue`, `/agy:setup` | the `jobs` skill (model-facing) | ask in natural language ("is the agy job done?"); the companion subcommands are unchanged |
-| manual `.git/info/exclude` step | automatic on first run | |
-
-## Migration from 0.4.4 (breaking)
-
-0.4.5 removes positional task text. The companion parses the shell's argv once and never re-splits an argument, which is what makes flag-like text inside a task safe (see [Task text](#task-text)). The price is that the task must arrive through an explicit source.
-
-| 0.4.4 | 0.4.5 | Notes |
-|---|---|---|
-| `ask "question"`, `review "Review PR #730"` (positional task text) | `ask --prompt "question"`, `review --prompt "Review PR #730"` | Positional text is removed, not deprecated: a positional argument on a run command is an error naming the three sources. `--prompt-file` and `--stdin` are unchanged. |
-| one big string, e.g. `review "--restricted Review PR #730"` | `review --restricted --prompt "Review PR #730"` | The companion no longer splits an argument into flags. A flag name that still contains whitespace gets an error naming this fix. |
-
-Management commands (`status`, `wait`, `result`, `cancel`, `setup`) are untouched: their positional arguments are ids and values, and `wait <id> --timeout 30s` works exactly as before.
-
-## Migration from 0.4.5
+## Default model history
 
 0.7.9 follows Google's Gemini 4 Neon launch: research, review and implement default to `gemini-4-neon-high`, staffer and ask stay on Hydrogen, and a bare `--effort` keeps the mode's default model. Argon and Orchestrator (Argon) ids are refused.
 
-0.7.8 moves every persona default and the bare `--effort` shorthand from Gemini 3.8 Flash to Gemini 4 Hydrogen (same effort tiers) and adds the `xhigh` effort. Flash ids still work with an explicit `--model`.
+0.7.8 moves every mode default and the bare `--effort` shorthand from Gemini 3.8 Flash to Gemini 4 Hydrogen (same effort tiers) and adds the `xhigh` effort. Flash ids still work with an explicit `--model`.
 
-0.5.0 updates all persona defaults and the `flash` alias/`--effort` shorthand from Gemini 3.7 Flash to Gemini 3.8 Flash while preserving each persona effort tier (`ask`: low; `staffer` & `reviewer`: medium; `researcher` & `implementer`: high).
+0.5.0 moved every mode default and the `flash` alias/`--effort` shorthand from Gemini 3.7 Flash to Gemini 3.8 Flash.
 
-If the installed `agy` CLI does not support Gemini 3.8 Flash, the companion fails clearly without silent fallback: it queries `agy models` and reports available models alongside the best same-effort compatible recommendation (e.g. `--model gemini-3.7-flash-high`), advising that updating `agy` is preferred to use the latest default.
+If the installed `agy` CLI does not offer a mode's default model, the companion fails clearly without silent fallback: it queries `agy models` and reports the available models with a compatible recommendation, advising that updating `agy` is preferred.
 
 ## Windows support
 
@@ -262,31 +220,24 @@ Windows is supported on a best-effort basis and exercised by the `Tests (Windows
 
 ## Upgrading
 
-Claude Code and Codex cache the plugin under a per-**version** directory (e.g. `cache/agy-staff/agy/0.4.0`) and key "is it current?" on that version string, not on the commit. Bump their manifests and `package.json` together when preparing a release. Pi's Git source instead follows the configured ref; local sources read the checkout directly.
+```bash
+aghub-cli -g -a claude,codex source sync audichuang/agy-staff --skill agy --update --yes
+```
 
-- **Claude Code** — `claude plugin marketplace update agy-staff` refreshes the marketplace clone, then `claude plugin update agy@agy-staff` re-copies it into the cache. `install` is **not** the upgrade command: on an already-installed plugin it answers "already installed" and does nothing, whatever the version. And `update` only moves if the version string changed — on an unchanged version it answers "already at the latest version" and leaves the old commit in place. Force the current commit in with `claude plugin uninstall agy@agy-staff && claude plugin install agy@agy-staff`. Restart Claude Code afterwards either way — skills are registered at session start.
-- **Codex** — bump the version, run `codex plugin marketplace upgrade` (or remove and re-add the marketplace entry), then restart the app.
-- **Pi** — for an unpinned Git install, run `pi update --extension git:github.com/keli-wen/agy-staff`, then `/reload`. For local development, regenerate Pi skills (`npm run generate:pi`) and run `/reload`; no push is needed.
-
-You can check which commit is actually installed: the `gitCommitSha` in `~/.claude/plugins/installed_plugins.json`, versus `git -C ~/.claude/plugins/marketplaces/agy-staff log -1` for what the marketplace clone has fetched.
+aghub-cli replaces `~/.aghub/agy` with the new commit. A session that started earlier may still hold the old skill text; start a new session to pick it up.
 
 ## Repository layout
 
 ```
-companion/agy-companion.mjs    command entrypoint, modes, job management and setup
-companion/stream-worker.mjs    streaming execution, process cleanup and deadlines
-companion/observation.mjs      event parsing, progress snapshots and output budgets
-companion/state-lock.mjs       state-write locking and stale-lock recovery
-templates/                    shared prompt templates (staffer/ask/research/review/implement)
-.claude-plugin/               Claude Code plugin + self-hosting marketplace manifests
-.codex-plugin/plugin.json     Codex plugin manifest
-.agents/plugins/              Codex marketplace manifest
-pi-skills/                    generated agy-* entrypoints/resources for Pi; do not hand-edit
-scripts/generate-pi-skills.mjs generates Pi skills and checks for drift
-package.json                  Pi manifest, npm file allowlist, and verification commands
-skills/                       canonical personas + jobs (Claude/Codex entrypoints;
-                              reviewer/ and jobs/ carry references/ for on-demand detail)
-assets/                       design diagram + logo + badges
-tests/                        offline regression tests and opt-in integration suites
-docs/                         references, installation guide and release notes
+skills/agy/SKILL.md                       entry point: mode routing, flags, result rules
+skills/agy/references/                    on-demand detail (code/general review, jobs, lead, setup, troubleshooting)
+skills/agy/templates/                     prompts sent to agy (staffer/ask/research/review/implement, evidence)
+skills/agy/companion/agy-companion.mjs    command entrypoint, modes, job management and setup
+skills/agy/companion/stream-worker.mjs    streaming execution, process cleanup and deadlines
+skills/agy/companion/observation.mjs      event parsing, progress snapshots and output budgets
+skills/agy/companion/state-lock.mjs       state-write locking and stale-lock recovery
+scripts/                                  diagram, badge and logo generators
+assets/                                   design diagrams, logo, badges
+tests/                                    offline regression tests and opt-in integration suites
+docs/                                     reference, agent install guide and release notes
 ```

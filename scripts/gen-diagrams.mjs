@@ -221,7 +221,7 @@ function diagramIntegration() {
   <!-- ===== 01 · AGENT LOOP, unrolled in time (clay) ===== -->
   ${frame(A, '01 · AGENT LOOP', 'host turns over time →', CLAY, CLAY_DARK)}
   ${harnessLogos(A.x + A.w - 20, 64)}
-  ${turn(T1, 'Delegate', ['Read the staffer skill.', 'Run the launch', 'command.'], LAUNCH_C)}
+  ${turn(T1, 'Delegate', ['Read the agy skill.', 'Run the launch', 'command.'], LAUNCH_C)}
   ${chevron(T1.x + T1.w + 10, midY)}
   ${turn(T2, 'Start a wait', ['Use the job ID to', 'wait in background.', 'Continue other work.'], WAIT_C)}
   ${chevron(T2.x + T2.w + 10, midY)}
@@ -249,7 +249,7 @@ function diagramIntegration() {
   <!-- ===== 02 · PLUGIN: bash commands (blue) ===== -->
   ${frame(B, '02 · AGY-STAFF', 'skills guide the agent; shell commands manage the job', BLUE, LINK)}
   <rect x="${WAIT.x}" y="${WAIT.y}" width="${WAIT.w}" height="${WAIT.h}" rx="6" fill="${WAIT_C.fill}" stroke="${WAIT_C.stroke}" stroke-width="1.5"/>
-  <text x="${WAIT.x + 10}" y="${WAIT.y + 18}" font-size="11" font-weight="700" class="mono" style="fill:${WAIT_C.text}">wait &lt;id&gt; --timeout 10m</text>
+  <text x="${WAIT.x + 10}" y="${WAIT.y + 18}" font-size="11" font-weight="700" class="mono" style="fill:${WAIT_C.text}">wait &lt;id&gt; --timeout 9m</text>
   <text x="${T3.x + 22}" y="${WAIT.y + 18}" font-size="10" class="mono" style="fill:${WAIT_C.text}">silent until ready</text>
   <text x="${T5.cx + 8}" y="${WAIT.y + 18}" font-size="10" font-weight="700" class="mono" style="fill:${INK}">result</text>
   <text x="${WAIT.x + 10}" y="${B.y + B.h - 8}" font-size="9.5" class="muted">One wait per job. Wait expiry returns a snapshot; execution continues.</text>
@@ -277,7 +277,7 @@ function diagramIntegration() {
   <rect x="${TILE.x}" y="${TILE.y}" width="${TILE.w}" height="${TILE.h}" rx="6" fill="${INK}"/>
   ${arch(TILE.x + 6, TILE.y + 5, 0.26)}
   <text x="${TILE.x + 48}" y="${TILE.y + 18}" font-size="11" font-weight="700" class="mono white">agy CLI</text>
-  <text x="${TILE.x + 48}" y="${TILE.y + 32}" font-size="9" class="silver">Gemini Flash</text>
+  <text x="${TILE.x + 48}" y="${TILE.y + 32}" font-size="9" class="silver">Gemini 4</text>
   <text x="${BAR.x + 12}" y="${BAR.y + 50}" font-size="9.5" class="muted">Worker deadline: 60m default, 120m max. Wait expiry leaves it running; cancel &lt;id&gt; stops the job.</text>
 
   <!-- Three equal footer columns; icons sit in 24px slots with an 8px text gap. -->
@@ -285,7 +285,7 @@ function diagramIntegration() {
   ${fact(px(CLOCK, 340, 592, 2, AMBER), 338, 370, 607, 'Host schedules agent turns')}
   ${px(PLUG, 615, 592, 2, LINK)}<text x="644" y="607" font-size="12.5"><tspan font-weight="700" fill="${LINK}">Skills + shell tools</tspan></text>`;
 
-  return shell(W, H, 'agy-staff exposes asynchronous agent work through persona skills and ordinary shell tool calls. The host agent delegates a task, receives a job ID, and starts a background wait where supported. It can continue other work; only an explicit user progress question triggers a bounded snapshot. The worker runs AGY independently, continuously drains its stream-json output, stores events and progress, and saves a final report. Wait expiry leaves execution running. The host controls model scheduling while the worker enforces a separate deadline, default 60 minutes and configurable up to 120 minutes.', body);
+  return shell(W, H, 'agy-staff exposes asynchronous agent work through one skill and ordinary shell tool calls. The host agent delegates a task, receives a job ID, and starts a background wait where supported. It can continue other work; only an explicit user progress question triggers a bounded snapshot. The worker runs AGY independently, continuously drains its stream-json output, stores events and progress, and saves a final report. Wait expiry leaves execution running. The host controls model scheduling while the worker enforces a separate deadline, default 60 minutes and configurable up to 120 minutes.', body);
 }
 
 // Keep the optional integration argument compatible with earlier regeneration commands.
