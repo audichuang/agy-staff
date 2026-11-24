@@ -224,6 +224,8 @@ wait 在完成或软到期之前保持静默。运行期间，只有用户明确
 
 ## 默认模型历史
 
+0.7.10 将 Google AI Pro 自 2026-11-23 起可用的 Gemini 4 Carbon 列为可选的 `--model carbon`，用于最难的长周期任务；默认模型不变。
+
 0.7.9 跟进 Google 发布的 Gemini 4 Neon：research、review 和 implement 默认改为 `gemini-4-neon-high`，staffer 和 ask 仍用 Hydrogen，单独给 `--effort` 时沿用该模式的默认模型。Argon 与 Orchestrator (Argon) 的 id 会被拒绝。
 
 0.7.8 将各模式的默认模型和 `--effort` 简写从 Gemini 3.8 Flash 换成 Gemini 4 Hydrogen（推理强度档位不变），并新增 `xhigh` 档。显式 `--model` 仍可指定 Flash 的 id。

@@ -206,6 +206,8 @@ Automatic: when the companion creates `.agy-staff/` for the first time in a repo
 
 ## Default model history
 
+0.7.10 lists Gemini 4 Carbon, open to Google AI Pro since 2026-11-23, as an opt-in `--model carbon` for the hardest long-horizon tasks; defaults are unchanged.
+
 0.7.9 follows Google's Gemini 4 Neon launch: research, review and implement default to `gemini-4-neon-high`, staffer and ask stay on Hydrogen, and a bare `--effort` keeps the mode's default model. Argon and Orchestrator (Argon) ids are refused.
 
 0.7.8 moves every mode default and the bare `--effort` shorthand from Gemini 3.8 Flash to Gemini 4 Hydrogen (same effort tiers) and adds the `xhigh` effort. Flash ids still work with an explicit `--model`.

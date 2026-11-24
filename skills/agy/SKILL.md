@@ -29,13 +29,14 @@ Coordinating several assignments or a long task: read `references/lead.md`.
 
 ## Pick a model
 
-Modes follow Google's split (2026-11-18): Neon, the strongest model on Pro, for deep reasoning (research, review, implement); Hydrogen, faster and half the price, for everyday work (staffer, ask). Both draw on the same Gemini 5h + weekly windows, rotated across accounts, so Neon spends them faster. Switch with `--model` when the task calls for it; `models` shows the ids on offer and each account's quota left. Argon is not offered here: Neon replaces it (2026-11-19), and `--model` refuses Argon ids.
+Modes follow Google's split: Neon for deep reasoning (research, review, implement), Hydrogen, faster and half the price, for everyday work (staffer, ask). Carbon, Google's model for the hardest long-horizon projects, is open to Pro since 2026-11-23 but Google puts Neon's cost per task about a third below Carbon's, so Carbon is opt-in. All three draw on the same Gemini 5h + weekly windows, rotated across accounts, so the bigger models spend them faster. Switch with `--model` when the task calls for it; `models` shows the ids on offer and each account's quota left. Argon is not offered here (Neon replaced it 2026-11-19; agy drops it 2026-11-30), and `--model` refuses Argon ids.
 
 | `--model` | Best at | Choose it when |
 | --- | --- | --- |
+| `carbon` | Google's strongest Gemini 4: long-horizon, many-step projects | the task is long and hard enough that Neon `xhigh` fell short or would likely fall short; efforts stop at `high` |
 | `neon` (research/review/implement default) | deep reasoning: multi-file debugging and refactors, architecture, subtle bugs, security review, long documents (1M context), charts, science and finance writing | the task is hard or costly to get wrong; `--effort xhigh` for the hardest, `medium`/`low` to save quota on a light review |
 | `hydrogen` (staffer/ask default) | fast everyday agentic work: lookups, routine edits, summaries, quick asks | the task is routine and speed matters, or Gemini quota is low; also a lighter `research`/`review` (`--model hydrogen --effort high`) |
-| `gemini-pro-orchestrator-neon` | one message planned and checked by Neon, carried out by parallel Hydrogen subagents; fixed setting, `--effort` ignored | a large implement task that splits into parallel parts, as an experiment: only smoke-tested here (it draws on the Gemini pool, measured 2026-11-19) |
+| `gemini-pro-orchestrator-neon` | one message planned and checked by Neon, carried out by parallel Hydrogen subagents; fixed setting, `--effort` ignored (`gemini-pro-orchestrator` is the Carbon-planned variant, untested here) | a large implement task that splits into parallel parts, as an experiment: only smoke-tested here (it draws on the Gemini pool, measured 2026-11-19) |
 | Claude Sonnet 5.5 | what the fallback runs (Claude group reserve) | never ask for it: agy-pick switches to Sonnet itself once Gemini is out; `--model` refuses Claude and GPT ids |
 
 ## Write the task

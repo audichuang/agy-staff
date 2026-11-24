@@ -117,7 +117,8 @@ const MODES = ['staffer', 'research', 'review', 'implement', 'ask'];
 const DEFAULTS = {
   model: {
     // Google's split (2026-11-18): Neon for deep reasoning in engineering and
-    // research, Hydrogen for fast everyday work. Both draw on one Gemini pool.
+    // research, Hydrogen for fast everyday work. Carbon (Pro since 2026-11-23)
+    // costs ~1.5x Neon per task (Google: Neon 32% lower), so it stays opt-in.
     staffer: 'gemini-4-hydrogen-medium',
     research: 'gemini-4-neon-high',
     review: 'gemini-4-neon-high',
