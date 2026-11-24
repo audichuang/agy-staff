@@ -252,7 +252,7 @@ function diagramIntegration() {
   <text x="${WAIT.x + 10}" y="${WAIT.y + 18}" font-size="11" font-weight="700" class="mono" style="fill:${WAIT_C.text}">wait &lt;id&gt; --timeout 9m</text>
   <text x="${T3.x + 22}" y="${WAIT.y + 18}" font-size="10" class="mono" style="fill:${WAIT_C.text}">silent until ready</text>
   <text x="${T5.cx + 8}" y="${WAIT.y + 18}" font-size="10" font-weight="700" class="mono" style="fill:${INK}">result</text>
-  <text x="${WAIT.x + 10}" y="${B.y + B.h - 8}" font-size="9.5" class="muted">One wait per job. Wait expiry returns a snapshot; execution continues.</text>
+  <text x="${WAIT.x + 10}" y="${B.y + B.h - 8}" font-size="9.5" class="muted">One wait per job. Wait expiry returns a one-line summary; execution continues.</text>
   ${chip(LAUNCH, 'launch', ['`staffer --prompt "…"`', 'Start an independent job.', 'Return a job ID.'], LAUNCH_C)}
   ${chip(OBSERVE, 'observe &lt;id&gt;', ['Return current progress:', '5 recent tool calls', '+ latest response'], OBS_C)}
 

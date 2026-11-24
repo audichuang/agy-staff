@@ -1506,9 +1506,12 @@ async function cmdWait(opts) {
 
 /** wait's exit 2 only means "wait again"; the full snapshot stays with observe/status. */
 function compactRunning(s, next) {
-  const tool = s.recent_activities?.at(-1);
+  // Finishing a tool updates its entry in place, so the newest update is not always the last entry;
+  // `seq` orders updates (timestamps tie within a millisecond).
+  const order = (x) => x?.seq ?? -1;
+  const tool = (s.recent_activities || []).reduce((a, b) => (!a || order(b) >= order(a) ? b : a), null);
   const text = s.latest_text;
-  const latest = text && (!tool || (text.updated_at || '') >= (tool.updated_at || ''))
+  const latest = text && (!tool || order(text) >= order(tool))
     ? `text: ${text.text}` : tool ? `tool ${tool.tool} (${tool.status})` : null;
   return { job_id: s.job_id, status: s.status, elapsed_seconds: s.elapsed_seconds,
     latest: latest && Array.from(latest.replace(/\s+/g, ' ')).slice(0, 80).join(''), next };

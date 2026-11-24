@@ -85,3 +85,13 @@ test('bounding legacy details preserves null pointers', () => {
   assert.equal(out.details.raw_output, null);
   assert.ok(bytes(out) + 1 <= 8192);
 });
+
+test('updates carry an order that survives a tool finishing after a later one started', async () => {
+  const p = createProjection();
+  const step = (i, name, state) => ({ event: 'step_update', step_update: { conversation_id: 'c', step_index: i, step_type: 'tool', state, tool_name: name } });
+  p.accept(step(1, 'first', 'ACTIVE')); p.accept(step(2, 'second', 'ACTIVE')); p.accept(step(1, 'first', 'DONE'));
+  const acts = p.snapshot().recent_activities;
+  const newest = acts.reduce((a, b) => (b.seq >= a.seq ? b : a));
+  assert.equal(newest.tool, 'first');
+  assert.equal(newest.status, 'done');
+});

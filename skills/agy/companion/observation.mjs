@@ -58,9 +58,11 @@ export function boundSnapshot(snapshot) {
 export function createProjection(onConversation = () => {}) {
   const data = { last_event_at: null, recent_activities: [], latest_text: null, warnings: [] };
   let conversation = null;
+  let seq = 0; // update order; timestamps tie within one millisecond
   const warn = (message) => { if (!data.warnings.includes(message) && data.warnings.length < 5) data.warnings.push(message); };
   const accept = (event) => {
     data.last_event_at = new Date().toISOString();
+    seq += 1;
     const body = event?.[event.event] || event;
     const id = body?.conversation_id;
     if (typeof id === 'string' && id.length <= 256 && id !== conversation) { conversation = id; onConversation(id); }
@@ -83,6 +85,7 @@ export function createProjection(onConversation = () => {}) {
       const tool = excerpt(step.tool_name || info.name || item.tool || 'unknown', 100);
       item.tool = tool.text; item.tool_truncated = tool.truncated || !!item.tool_truncated;
       item.updated_at = data.last_event_at;
+      item.seq = seq;
       item.status = info.error || step.error || /ERROR|FAIL/.test(step.state || '') ? 'error' : state;
       if (info.parameters !== undefined) {
         const input = excerpt(info.parameters, 240);
@@ -102,11 +105,12 @@ export function createProjection(onConversation = () => {}) {
       if (typeof step.text_delta === 'string' && step.text_delta) {
         const prev = data.latest_text?.key === key ? data.latest_text : null;
         const text = excerpt((prev?.text || '') + step.text_delta, 1700, true);
-        data.latest_text = { key, step_index: step.step_index, text: text.text, truncated: !!(prev?.truncated || text.truncated), updated_at: data.last_event_at, incomplete: state !== 'done', status: state };
+        data.latest_text = { key, step_index: step.step_index, text: text.text, truncated: !!(prev?.truncated || text.truncated), updated_at: data.last_event_at, seq, incomplete: state !== 'done', status: state };
       } else if (data.latest_text?.key === key) {
         data.latest_text.incomplete = state !== 'done';
         data.latest_text.status = state;
         data.latest_text.updated_at = data.last_event_at;
+        data.latest_text.seq = seq;
       }
     }
   };
