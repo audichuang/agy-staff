@@ -34,7 +34,7 @@ Modes follow Google's split: Neon for deep reasoning (research, review, implemen
 Keep the mode's default model unless one of these applies (first match wins; a `--model` without `--effort` runs `medium`):
 1. The user names a model or tier: use it.
 2. The user asks for the strongest model, or Neon `xhigh` already fell short on this task: `--model carbon --effort high`. Not for work that is merely long: one run stops at 120m (implement runs were cut at 37-60m), so split multi-hour work per `references/lead.md`, and have an implement/staffer task run only the tests its change touches (unit tests or one UI test); you run the full or UI suite afterwards.
-3. Hard or costly to get wrong, in any mode (staffer included): `--model neon`; `--effort xhigh` for the hardest.
+3. Hard or costly to get wrong, in any mode (staffer included): Neon at `high` (research/review/implement already are; staffer: `--model neon --effort high`); `--effort xhigh` for the hardest.
 4. Routine (a typo, a summary, a one-fact lookup), in any mode: `--model hydrogen`. A survey is not routine.
 
 Then, if Gemini quota is low (`models`), lower `--effort` first; drop to Hydrogen only where a miss is cheap.
