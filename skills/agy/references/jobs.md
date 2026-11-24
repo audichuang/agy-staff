@@ -18,7 +18,7 @@ Default flow: prepare the prompt → dispatch → wait for the final result → 
 | Code | Meaning | Next action |
 | --- | --- | --- |
 | 0 | Invocation ended; response text delivered | Assess whether it satisfies the task. Review attached diagnostics; inspect further only as needed. |
-| 2 | Still running; wait soft-expired | Wait again for the same job. The attached snapshot is not a request to inspect progress or intervene. |
+| 2 | Still running; wait soft-expired | Run the printed `next` command to wait again for the same job. The one-line summary (`latest`) is not a request to inspect progress or intervene. |
 | 3 | Error or crash | Read the error and recovery information below. |
 | 4 | Canceled | Complete any already-authorized follow-up; otherwise report cancellation. |
 | 5 | Attention: resumable timeout | Inspect partial workspace changes; ask whether to continue with the suggested timeout or stop. Continue only after explicit user confirmation. |
@@ -26,7 +26,7 @@ Default flow: prepare the prompt → dispatch → wait for the final result → 
 
 `done` describes invocation and response delivery, not task acceptance. Preserve agy-cli response text and diagnostics; a nonempty response may only acknowledge launched background work. Successful calls with warnings include a bounded log tail on stderr and a full-log pointer. The orchestrator assesses the response and artifacts, uses `observe` or diagnostics if the returned result needs investigation, and decides whether to propose continuation. Keep the recovery confirmation rules below; do not infer timeout from response wording or add routine progress polling.
 
-When the user explicitly asks for progress, use `observe <id>` and answer from that snapshot, keeping any pending wait open. An already returned snapshot may answer the question; do not duplicate it or turn one question into recurring observation.
+When the user explicitly asks for progress, use `observe <id>` and answer from that snapshot, keeping any pending wait open. An already returned wait summary may answer the question; do not duplicate it or turn one question into recurring observation.
 
 Collecting a pending wait command is necessary result collection, not active observation. Host collectors (for example, Codex `write_stdin`) return that command's output; an outer `functions.wait` resumes a yielded `functions.exec` call. They do not independently read AGY progress. Prefer background completion delivery; if host collection requires polling, use a long supported blocking wait rather than short empty polls or sleep loops. Keep the same pending command until it returns; only restart `wait` for the same job after exit 2.
 

@@ -47,9 +47,9 @@ describe('removed execution flags (--background / --wait)', () => {
       );
       assert.match(
         r.stderr,
-        /ask runs in the foreground; research\/review\/implement run as background jobs/
+        /ask runs in the foreground; staffer\/research\/review\/implement run as background jobs/
       );
-      assert.match(r.stderr, /Use status\/result\/cancel to manage jobs\./);
+      assert.match(r.stderr, /Drop the flag\. Use status\/result\/cancel to manage jobs\./);
       assert.doesNotMatch(r.stderr, /review is prompt-based now/);
       assert.equal(agyCalls(sb).length, 0, 'agy must not be invoked');
     });

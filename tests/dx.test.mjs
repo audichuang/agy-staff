@@ -202,6 +202,26 @@ describe('task text comes only from the three sources', () => {
     assert.equal(agyCalls(sb).length, 0, 'agy must not be invoked');
   });
 
+  test('a lone trailing `.` is ignored with a warning; `.` elsewhere still dies', async () => {
+    const sb = sandbox('positional-dot');
+    const r = run(sb, ['staffer', '--prompt', 'task', '--timeout', '90m', '.']);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stderr, /ignoring trailing `\.`; the companion already runs in the current directory/);
+    assert.equal(run(sb, ['wait', jobIdOf(r.stdout)]).code, 0);
+    assert.notEqual(run(sb, ['staffer', '.', '--prompt', 'task']).code, 0);
+  });
+
+  test('--cwd and an over-max --timeout say the correct way', () => {
+    const sb = sandbox('bad-args-hints');
+    const cwd = run(sb, ['implement', '--cwd', '/tmp', '--prompt', 'task']);
+    assert.equal(cwd.code, 1);
+    assert.match(cwd.stderr, /--cwd is not supported: .*`cd <dir> && node \.\.\.`/);
+    const long = run(sb, ['implement', '--timeout', '150m', '--prompt', 'task']);
+    assert.equal(long.code, 1);
+    assert.match(long.stderr, /--timeout 150m is over the 120m maximum for background jobs; split the task/);
+    assert.equal(agyCalls(sb).length, 0, 'agy must not be invoked');
+  });
+
   test('an empty positional (an unset shell variable) dies loudly, never silently', () => {
     const sb = sandbox('positional-empty');
     // the shape produced by `ask --prompt "$Q" "$EXTRA"` with $EXTRA unset

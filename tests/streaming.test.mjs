@@ -10,7 +10,7 @@ const job = (sb, id) => state(sb).jobs.find((j) => j.id === id);
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 const events = [{ event: 'step_update', step_update: { conversation_id: 'conv-1', step_index: 2, step_type: 'tool', state: 'DONE', tool_name: 'shell', tool_info: { parameters: { command: 'hello' }, output: 'world' } } }, { event: 'step_update', step_update: { conversation_id: 'conv-1', step_index: 3, step_type: 'agent_response', state: 'ACTIVE', text_delta: 'Working…' } }];
 
-test('soft expiry includes observation; independent observers and interrupted wait leave execution alive', async t => {
+test('soft expiry prints a compact summary; independent observers and interrupted wait leave execution alive', async t => {
   const sb = sandbox('observers');
   const release = path.join(sb.root, 'release');
   t.after(() => fs.writeFileSync(release, 'finish'));
@@ -30,7 +30,13 @@ test('soft expiry includes observation; independent observers and interrupted wa
   waiter.kill('SIGTERM');
   const early = run(sb, ['wait', id, '--timeout', '150ms']);
   assert.equal(early.code, 2, early.stdout + early.stderr);
-  const first = JSON.parse(early.stdout);
+  // wait's exit 2 is a compact summary; the full snapshot comes from observe.
+  const summary = JSON.parse(early.stdout);
+  assert.equal(summary.latest, 'text: Working…');
+  assert.match(summary.next, new RegExp(`wait ${id} --timeout 150ms$`));
+  const { next, ...rest } = summary;
+  assert.ok(Buffer.byteLength(JSON.stringify(rest)) <= 300, early.stdout);
+  const first = JSON.parse(run(sb, ['observe', id]).stdout);
   assert.equal(first.recent_activities[0].output_preview, 'world');
   assert.equal(first.latest_text.text, 'Working…');
   assert.equal(first.latest_text.incomplete, true);

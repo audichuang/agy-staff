@@ -74,6 +74,7 @@ describe('execution style is fixed per mode', () => {
       // the collect contract is stated in the job-start output itself
       assert.match(r.stdout, new RegExp('Collect: run `cd .* && node .*agy-companion\\.mjs\'? wait ' + id + ' --timeout \\d+m`'));
       assert.match(r.stdout, /one background wait per job/);
+      assert.match(r.stdout, /Run it as printed, with no pipe or redirection .*: stdout is the full result\./);
       // the dispatch itself must not have blocked on agy — no telemetry on
       // either stream, the run has not happened yet
       assert.doesNotMatch(r.stdout, /\[agy-staff\] mode=/);

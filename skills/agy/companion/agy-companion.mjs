@@ -457,7 +457,8 @@ function migrationDie(name) {
   }
   die(
     `--${name} was removed in 0.2: execution style is fixed per mode (ask runs in the foreground; ` +
-      `research/review/implement run as background jobs). Use status/result/cancel to manage jobs.`
+      `staffer/research/review/implement run as background jobs and print their wait command). ` +
+      `Drop the flag. Use status/result/cancel to manage jobs.`
   );
 }
 
@@ -523,11 +524,16 @@ function parseFlags(argv, { taskCommand = false } = {}) {
         opts[name] = v;
       } else if (BOOL_FLAGS.has(name)) {
         opts[name] = true;
+      } else if (name === 'cwd') {
+        die('--cwd is not supported: the companion runs in the current directory; run `cd <dir> && node ...` instead');
       } else if (/\s/.test(name)) {
         packedArgumentDie(name, t);
       } else {
         die(`unknown flag --${name}`);
       }
+    } else if (taskCommand && t === '.' && i === argv.length - 1) {
+      // Agents append `.` out of CLI habit; it can only mean the cwd, which is already the target.
+      process.stderr.write('agy-staff: ignoring trailing `.`; the companion already runs in the current directory\n');
     } else if (taskCommand) {
       die(
         `positional task text was removed; pass the task with --prompt <text>, ` +
@@ -1007,7 +1013,8 @@ function resolveRun(mode, opts, priorJob = null) {
 
   const timeout = opts.timeout || DEFAULTS.timeout[mode];
   const budget = durationToMs(timeout);
-  if (!Number.isFinite(budget) || budget <= 0 || (background && budget > 7200000)) die('invalid --timeout: use a positive duration, at most 120m for background jobs');
+  if (!Number.isFinite(budget) || budget <= 0) die('invalid --timeout: use a positive duration such as 60m');
+  if (background && budget > 7200000) die(`--timeout ${timeout} is over the 120m maximum for background jobs; split the task into smaller assignments (references/lead.md)`);
 
   // conversation
   const state = loadState();
@@ -1328,6 +1335,7 @@ async function dispatch(resolved, prompt, opts) {
       `result file (written when the job finishes): ${resultFile}\n` +
       `Collect: run \`cd ${shellArg(repoRoot())} && node ${shellArg(SELF)} wait ${jobId} --timeout 9m\` as a background command ` +
       `(one background wait per job; exit 0 = result printed, 2 = still running — wait again for the same job, without extra progress checks).\n` +
+      `Run it as printed, with no pipe or redirection (no \`| tail\`, \`2>&1\`, \`> file\`): stdout is the full result.\n` +
       `Progress only if the user asks: \`observe ${jobId}\`   Stop: \`cancel ${jobId}\`\n`
   );
 }
@@ -1492,7 +1500,18 @@ async function cmdWait(opts) {
     status = liveJobStatus(job);
   }
 
-  return renderJobResponse(job);
+  const next = `cd ${shellArg(repoRoot())} && node ${shellArg(SELF)} wait ${job.id} --timeout ${shellArg(opts.timeout || '9m')}`;
+  return renderJobResponse(job, { waitAgain: next });
+}
+
+/** wait's exit 2 only means "wait again"; the full snapshot stays with observe/status. */
+function compactRunning(s, next) {
+  const tool = s.recent_activities?.at(-1);
+  const text = s.latest_text;
+  const latest = text && (!tool || (text.updated_at || '') >= (tool.updated_at || ''))
+    ? `text: ${text.text}` : tool ? `tool ${tool.tool} (${tool.status})` : null;
+  return { job_id: s.job_id, status: s.status, elapsed_seconds: s.elapsed_seconds,
+    latest: latest && Array.from(latest.replace(/\s+/g, ' ')).slice(0, 80).join(''), next };
 }
 
 function findJob(id) {
@@ -1599,7 +1618,7 @@ function readTerminalObservation(job, status) {
   return boundSnapshot(snapshot);
 }
 
-function renderJobResponse(initial, { observeOnly = false } = {}) {
+function renderJobResponse(initial, { observeOnly = false, waitAgain = null } = {}) {
   let job = findJob(initial.id);
   let status = liveJobStatus(job);
   if (status === 'running') {
@@ -1608,7 +1627,7 @@ function renderJobResponse(initial, { observeOnly = false } = {}) {
     job = findJob(job.id);
     status = liveJobStatus(job);
     if (status === 'running') {
-      process.stdout.write(JSON.stringify(snapshot) + '\n');
+      process.stdout.write(JSON.stringify(waitAgain ? compactRunning(snapshot, waitAgain) : snapshot) + '\n');
       process.exitCode = 2;
       return;
     }

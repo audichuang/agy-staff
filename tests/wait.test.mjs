@@ -76,7 +76,14 @@ describe('wait', () => {
 
     const first = run(sb, ['wait', id, '--timeout', '1s']);
     assert.equal(first.code, 2, `${first.stdout}${first.stderr}`);
-    assert.equal(JSON.parse(first.stdout).status, 'running');
+    const compact = JSON.parse(first.stdout);
+    assert.equal(compact.status, 'running');
+    assert.equal(compact.job_id, id);
+    assert.ok(Number.isInteger(compact.elapsed_seconds));
+    assert.match(compact.next, new RegExp(`^cd .* && node .*agy-companion\\.mjs'? wait ${id} --timeout 1s$`));
+    assert.equal(compact.recent_activities, undefined, 'the full snapshot belongs to observe/status');
+    assert.equal(compact.details, undefined);
+    assert.ok(Object.keys(compact).every((k) => ['job_id', 'status', 'elapsed_seconds', 'latest', 'next'].includes(k)));
     assert.doesNotMatch(first.stdout, /fake answer/, 'a timed-out wait must not print a result');
 
     const second = run(sb, ['wait', id]);
