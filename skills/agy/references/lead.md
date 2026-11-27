@@ -15,6 +15,6 @@ Read this when the user asks you to coordinate a larger task with agy, or when y
 
 Dispatch each assignment as SKILL.md's "Launch" describes, one Orca terminal per assignment, and keep each handle with its assignment. Use `references/code-review.md` for code-review briefs. Types keep their default model; honor user overrides.
 
-Follow up in the same terminal while its conversation context helps; once it is closed, open a fresh one whose brief states what is already done. Let useful running work finish when feedback can wait; for an immediate change, interrupt (`orca terminal send --terminal <handle> --interrupt --text $'\x1b'`), confirm on screen that agy stopped, then send the new instruction. Account for partial work in the worktree after an interruption.
+Follow up in the same terminal while its conversation context helps; once it is closed, open a fresh one whose brief states what is already done. Let useful running work finish when feedback can wait; for an immediate change, interrupt (`orca terminal send --terminal <handle> --text $'\x1b'`; the screen then shows `Interrupted`), confirm on screen that agy stopped, then send the new instruction. Account for partial work in the worktree after an interruption.
 
 In this workflow you compose briefs and synthesize results. The verbatim-delivery rule in SKILL.md applies to single delegations. Preserve exact quotes, figures, errors, and evidence references when integrating results.

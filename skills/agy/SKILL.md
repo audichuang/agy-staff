@@ -40,7 +40,7 @@ Keep the type's default unless one of these applies (first match wins):
    around 37-60m, so split multi-hour work per `references/lead.md`, and have an implement/staffer
    task run only the tests its change touches; you run the full or UI suite afterwards.
 3. Hard or costly to get wrong, in any type (staffer included): `gemini-4-neon` / `high`;
-   `xhigh` for the hardest.
+   `xhigh` for the hardest. A full meeting transcript with its summary counts.
 4. Routine (a typo, a summary, a one-fact lookup), in any type: `gemini-4-hydrogen` / `low`. A
    survey is not routine.
 
@@ -59,7 +59,7 @@ Claude - start a Claude subagent instead.
 - Keep the user's explicit authorizations verbatim ("open a draft PR", "run the e2e tests"). Orca
   starts agy with `--dangerously-skip-permissions`, so the template's guardrails (no commit, push,
   side-effectful or paid calls unless authorized) are the only brakes - keep them.
-- Name the deliverable's absolute path in the brief (`<dir>/transcript.md`, `<dir>/review.md`) and
+- Name the deliverable's absolute path in the brief (ask has no tools: its reply stays on screen, but still ends with the marker) (`<dir>/transcript.md`, `<dir>/review.md`) and
   end with: write the full result there, then print the line `AGY-DONE <id>` on its own. Reading
   the file beats copying from the screen; left to choose, agy has handed back a progress log with
   the real content in another file.
@@ -89,8 +89,9 @@ orca agent launch --agent antigravity --worktree path:<abs path> --surface termi
 ```
 
 Then `orca terminal read --terminal <handle>`: if the brief is still sitting in agy's input box,
-submit it with `orca terminal send --terminal <handle> --enter --wait-submit 10`. Read-only types
-(research, review, ask) can launch in the current worktree. Parallel editing
+submit it with `orca terminal send --terminal <handle> --enter` (`--wait-submit` is refused
+without `--text`). Read-only types (research, review, ask) need no new worktree: launch them in
+any checkout Orca already knows, such as the repo's main checkout. Parallel editing
 assignments each need their own worktree. If the launch reply is lost, rerun with
 `--retry-launch <operationId>` from the error, never as a fresh launch.
 
@@ -105,7 +106,8 @@ orca terminal wait --terminal <handle> --for tui-idle --json
 `tui-idle` also fires during agy's thinking pauses. After it returns, `orca terminal read
 --terminal <handle>` and count the run as finished only when a line, trimmed, equals
 `AGY-DONE <id>` (the screen echoes the brief, so a substring match lies) and the screen no longer
-shows `Generating...`; otherwise wait again. Then read the result file.
+shows `Generating...` (idle agy shows `> Auto mode: ...` at the bottom); otherwise wait again. The
+first `tui-idle` often fires while agy is still signing in. Then read the result file.
 
 - Follow-up in the same conversation: `orca terminal send --terminal <handle> --text "<msg>" --enter`. Once the terminal
   is closed, open a new one with a brief that says what is already done.
@@ -134,8 +136,8 @@ user asked for the asset, and preview an unfamiliar call with `--dry-run` first.
 
 | Need | Command (default model) |
 | --- | --- |
-| voiceover, narration, TTS | `gemini-api tts` (`gemini-3.8-flash-tts`) |
-| transcript or captions of audio/video | `gemini-api transcribe --format md\|text\|json\|srt` |
+| voiceover, narration, TTS | `gemini-api tts "<text>"` or `-f <file>` (`gemini-3.8-flash-tts`) |
+| transcript or captions of audio/video | `gemini-api transcribe -i <file> --format md\|text\|json\|srt` |
 | questions about a PDF, recording, video, YouTube URL | `gemini-api analyze -i <file or URL>` |
 | music | `gemini-api music` |
 | video | `gemini-api video` |
@@ -143,6 +145,7 @@ user asked for the asset, and preview an unfamiliar call with `--dry-run` first.
 - Images go through the imagine skill, unless the user names Gemini (then `gemini-api image`).
 - The key lives in Doppler: `doppler run -p api-key -c dev -- sh -c 'GEMINI_API_KEY="$GOOGLE_API_KEY" gemini-api <...>'`.
   Never write it to a file or argv.
-- Write outputs with `--out <dir>` into the place the user wants them and report the printed paths.
+- `--out` is a file path unless it ends in `/`: `--out subtitles/` writes into that directory,
+  `--out subtitles` writes `subtitles.srt`. Report the path the command prints.
 - Flags, schemas and the rest (`agent`, `files`, `voices`): `gemini-api <command> --help` or
   `--usage`. Not installed: `curl -fsSL https://raw.githubusercontent.com/google-gemini/gemini-api-cli/main/scripts/install.sh | bash`.
