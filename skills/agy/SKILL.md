@@ -64,8 +64,7 @@ Claude - start a Claude subagent instead.
   the file beats copying from the screen; left to choose, agy has handed back a progress log with
   the real content in another file.
 - Media inside an agy task (the user asked agy to transcribe a recording or judge audio): agy may
-  not read the file itself, so allow `gemini-api` in the brief with the Doppler command from the
-  last section and a call cap ("at most 6 gemini-api calls"); paid calls are otherwise denied.
+  not read the file itself, so allow `gemini-api-run` (the media section's wrapper) in the brief with a call cap ("at most 6 gemini-api calls"); paid calls are otherwise denied.
   For a transcript, list the names and terms you know (attendees, products) so agy can spell them.
 - Save the brief to a file (outside the repo, e.g. `mktemp -d`) and pass it with
   `--prompt "$(cat <brief>)"`; Orca sends multi-line text, CJK and quotes intact.
@@ -143,8 +142,10 @@ user asked for the asset, and preview an unfamiliar call with `--dry-run` first.
 | video | `gemini-api video` |
 
 - Images go through the imagine skill, unless the user names Gemini (then `gemini-api image`).
-- The key lives in Doppler: `doppler run -p api-key -c dev -- sh -c 'GEMINI_API_KEY="$GOOGLE_API_KEY" gemini-api <...>'`.
-  Never write it to a file or argv.
+- Run it as `gemini-api-run <args>` (same arguments as `gemini-api`): that wrapper, deployed with
+  the user's machine tools, injects the key from Doppler. Never put the key in a file or argv.
+  Over SSH into a Mac it fails with Doppler `exit status 36` (keychain locked), which is not a bad
+  key.
 - `--out` is a file path unless it ends in `/`: `--out subtitles/` writes into that directory,
   `--out subtitles` writes `subtitles.srt`. Report the path the command prints.
 - Flags, schemas and the rest (`agent`, `files`, `voices`): `gemini-api <command> --help` or
