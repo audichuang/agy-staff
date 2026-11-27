@@ -1,6 +1,6 @@
 # Composing a code-review task
 
-Read this when the review subject is code: a PR, a branch or ref, the working tree, a patch file, or specific files. The companion's template carries only the reviewer stance and guardrails; the code-review contract below travels in the task string. Compose the task as the user's request, verbatim, followed by this contract — adjusted only where the request explicitly overrides it. A composed task is usually long: pass it with `--prompt-file` or `--stdin` rather than `--prompt` (the three are the only task sources, and exactly one per call).
+Read this when the review subject is code: a PR, a branch or ref, the working tree, a patch file, or specific files. The review template carries only the reviewer stance and guardrails; the code-review contract below travels in `{{TASK}}`. Compose the task as the user's request, verbatim, followed by this contract — adjusted only where the request explicitly overrides it.
 
 The standards and spec-alignment axes are adapted from `code-review` in [mattpocock/skills](https://github.com/mattpocock/skills) (MIT).
 
@@ -39,6 +39,4 @@ Cover each axis; drop one only when the diff plainly has none of that surface, a
 - `## Findings` — severity-ranked list as specified above. If none: say so explicitly and state what was checked.
 - `## What I could not verify` — mandatory. Evidence that could not be fetched, tests that could not run, callers not seen, assumptions made.
 
-## --json
-
-`--json` makes the companion enforce a findings schema (verdict / summary / findings with severity, file, line, title, detail / could_not_verify) instead of markdown. Opt-in only, when the user wants machine-readable output; it matches the output format above, so no extra task text is needed for it.
+When the user wants machine-readable findings, ask in the brief for the same fields as JSON (verdict / summary / findings with severity, file, line, title, detail / could_not_verify) in the deliverable file.

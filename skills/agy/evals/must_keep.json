@@ -1,0 +1,22 @@
+{
+ "cases": [
+  {
+   "id": "low-quota-keeps-neon-for-security",
+   "prompt": "請 agy 幫這個 repo 做一次安全審查（auth 跟 SQL 那幾層），不過 Gemini 額度快用完了。先別真的執行任何指令，告訴我你會用哪個 model 和 effort、為什麼。",
+   "check": {
+    "contains": [
+     "eon"
+    ]
+   }
+  },
+  {
+   "id": "strongest-means-carbon",
+   "prompt": "請 agy 審查 PR #42，用最強的模型。先別真的執行任何指令，告訴我你會用哪個 model 和 effort。",
+   "check": {
+    "contains": [
+     "arbon"
+    ]
+   }
+  }
+ ]
+}
