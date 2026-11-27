@@ -15,9 +15,16 @@ automated account rotation as grounds for suspension (agy-accounts `decisions.md
 Orca terminal (no `ORCA_*` environment variables), a bare `orca` can resolve to GNOME's screen
 reader `/usr/bin/orca`, which segfaults: use `orca-ide` for every `orca` command below (the Macs have
 only `orca`). Launching there from another machine, wrap each call in `ssh <host> 'bash -lc "orca-ide …"'` and run `terminal wait` /
-`read` through the same ssh, since a terminal handle belongs to the Orca server that issued it;
-write the brief to a file on that host and pass `--prompt "Read <path> and do the task it
-describes."` instead of `$(cat <brief>)`, which avoids nested quoting.
+`read` through the same ssh, since a terminal handle belongs to the Orca server that issued it.
+Write the brief to a file on that host first, so no brief text crosses the two shells. Types that
+use tools (implement, research, review, staffer) get only a read instruction:
+
+```bash
+ssh <host> 'bash -lc "orca-ide worktree create --repo <selector> --name <ticket> --agent antigravity --surface terminal --model gemini-4-neon --effort high --prompt \"Read <path> and do the task it describes.\" --json"'
+```
+
+ask and the quota probe have no tools and cannot read a file: pass `--prompt \"\$(cat <path>)\"`
+instead, which the host's shell expands into the full prompt.
 
 ## Pick the task type
 
@@ -105,7 +112,8 @@ assignments each need their own worktree. If the launch reply is lost, rerun wit
 
 ## Collect the result
 
-`result.outcome.handle` in the launch JSON is the terminal. Wait in the background:
+The terminal is `result.outcome.handle` in `agent launch` JSON and `result.launch.outcome.handle` in
+`worktree create` JSON. Wait in the background:
 
 ```bash
 orca terminal wait --terminal <handle> --for tui-idle --json
