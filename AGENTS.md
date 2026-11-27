@@ -12,6 +12,8 @@ machine and overwrites it on update, so edit only here and keep anything that is
   in 0.7.10 that check found a multi-hour task sent to one Carbon run and low quota dropping a
   security review to Hydrogen.
 - Upstream `keli-wen/agy-staff` diverged at 0.7.3: we ship one self-contained skill, not its
-  plugin and persona skills. Port only model and agy-compatibility changes, never merge
+  plugin and persona skills. Port model and agy-compatibility changes, plus worker-template and lead guidance
+  that upstream's benchmark backs (its 0.8.0 templates and lead points 1/2/6 came over 2026-11-27,
+  with "no further delegation" narrowed so agy's own subagents stay allowed); never merge
   (`../agy-accounts/decisions.md`, 2026-11-13). `docs/releases/` (all up to v0.7.3) are upstream's
   plugin release notes kept as history; their install and persona steps don't apply here.

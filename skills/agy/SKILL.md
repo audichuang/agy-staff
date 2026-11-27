@@ -56,11 +56,15 @@ Claude - start a Claude subagent instead.
   the goal and what an acceptable result looks like, `{{CONTEXT}}` with relevant context and
   decisions, `{{WORKSPACE}}` with the worktree's absolute path. For research, review and implement
   also paste `templates/evidence.md` under the task.
-- Keep the user's explicit authorizations verbatim ("open a draft PR", "run the e2e tests"). Orca
+- Copy the user's constraints and explicit authorizations ("open a draft PR", "run the e2e tests")
+  verbatim into a section of their own. Leave out instructions meant for you, such as which skill to
+  use or what to delegate: a benchmark of the upstream skill saw them dropped rules and a nested agy
+  launch. Orca
   starts agy with `--dangerously-skip-permissions`, so the template's guardrails (no commit, push,
   side-effectful or paid calls unless authorized) are the only brakes - keep them.
 - Name the deliverable's absolute path in the brief (ask has no tools: its reply stays on screen, but still ends with the marker) (`<dir>/transcript.md`, `<dir>/review.md`) and
-  end with: write the full result there, then print the line `AGY-DONE <id>` on its own. Reading
+  end with: write the full result there, starting with its `Status:` line, then print the line
+  `AGY-DONE <id>` on its own. Reading
   the file beats copying from the screen; left to choose, agy has handed back a progress log with
   the real content in another file.
 - Media inside an agy task (the user asked agy to transcribe a recording or judge audio): agy may
@@ -87,7 +91,7 @@ orca agent launch --agent antigravity --worktree path:<abs path> --surface termi
   --model gemini-4-neon --effort high --prompt "$(cat <brief>)" --json
 ```
 
-Then `orca terminal read --terminal <handle>`: if the brief is still sitting in agy's input box,
+Then `orca terminal read --terminal <handle> --screen`: if the brief is still sitting in agy's input box,
 submit it with `orca terminal send --terminal <handle> --enter` (`--wait-submit` is refused
 without `--text`). Read-only types (research, review, ask) need no new worktree: launch them in
 any checkout Orca already knows, such as the repo's main checkout. Parallel editing
@@ -103,10 +107,12 @@ orca terminal wait --terminal <handle> --for tui-idle --json
 ```
 
 `tui-idle` also fires during agy's thinking pauses. After it returns, `orca terminal read
---terminal <handle>` and count the run as finished only when a line, trimmed, equals
+--terminal <handle> --screen` and count the run as finished only when a line, trimmed, equals
 `AGY-DONE <id>` (the screen echoes the brief, so a substring match lies) and the screen no longer
 shows `Generating...` (idle agy shows `> Auto mode: ...` at the bottom); otherwise wait again. The
-first `tui-idle` often fires while agy is still signing in. Then read the result file.
+first `tui-idle` often fires while agy is still signing in. In the result, read the first
+`Status: DONE | DONE_WITH_CONCERNS | BLOCKED` line and any `## Conflicts with the task` before the
+rest: a conflict can overturn a decision you put in the brief. Then read the result file.
 
 - Follow-up in the same conversation: `orca terminal send --terminal <handle> --text "<msg>" --enter`. Once the terminal
   is closed, open a new one with a brief that says what is already done.

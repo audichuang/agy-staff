@@ -1,6 +1,6 @@
 {
   "name": "agy-staff",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Delegate work to Google's Antigravity CLI (agy) through Orca, with gemini-api for media.",
   "keywords": [],
   "license": "MIT",
