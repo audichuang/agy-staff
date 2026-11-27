@@ -11,8 +11,13 @@ generation and file understanding go to `gemini-api` instead (last section).
 agy is started **only** through `orca agent launch` / `orca worktree create --agent antigravity`,
 on the account agy is already logged into. Never run `agy -p`, `agy-pick`, `agy-as`, `AGY_BIN`, or
 `orca account select`: Antigravity's consumer terms name wrapping agy in headless automation and
-automated account rotation as grounds for suspension (agy-accounts `decisions.md`, 2026-11-26). Only the two Macs can launch it (`orca agent installed` lists `antigravity`); ubuntu
-cannot.
+automated account rotation as grounds for suspension (agy-accounts `decisions.md`, 2026-11-26). It runs on any machine where Orca is running, Linux included. On Linux outside an
+Orca terminal (no `ORCA_*` environment variables), a bare `orca` can resolve to GNOME's screen
+reader `/usr/bin/orca`, which segfaults: use `orca-ide` for every `orca` command below (the Macs have
+only `orca`). Launching there from another machine, wrap each call in `ssh <host> 'bash -lc "orca-ide …"'` and run `terminal wait` /
+`read` through the same ssh, since a terminal handle belongs to the Orca server that issued it;
+write the brief to a file on that host and pass `--prompt "Read <path> and do the task it
+describes."` instead of `$(cat <brief>)`, which avoids nested quoting.
 
 ## Pick the task type
 
